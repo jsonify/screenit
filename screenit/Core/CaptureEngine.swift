@@ -168,4 +168,61 @@ class CaptureEngine: ObservableObject {
         let rect = CGRect(origin: .zero, size: CGSize(width: display.width, height: display.height))
         return await captureArea(rect)
     }
+    
+    func samplePixelsAt(point: CGPoint, size: CGSize = CGSize(width: 21, height: 21)) async -> NSImage? {
+        guard capturePermissionGranted else { return nil }
+        
+        if availableDisplays.isEmpty {
+            await updateAvailableContent()
+        }
+        
+        guard let display = availableDisplays.first else { return nil }
+        
+        let halfSize = CGSize(width: size.width / 2, height: size.height / 2)
+        let sampleRect = CGRect(
+            x: point.x - halfSize.width,
+            y: point.y - halfSize.height,
+            width: size.width,
+            height: size.height
+        )
+        
+        let filter = SCContentFilter(display: display, excludingApplications: [], exceptingWindows: [])
+        let configuration = SCStreamConfiguration()
+        configuration.width = Int(size.width)
+        configuration.height = Int(size.height)
+        configuration.sourceRect = sampleRect
+        configuration.scalesToFit = false
+        configuration.showsCursor = false
+        
+        do {
+            let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
+            return NSImage(cgImage: image, size: size)
+        } catch {
+            return nil
+        }
+    }
+    
+    func getRGBAt(point: CGPoint) async -> (red: Int, green: Int, blue: Int)? {
+        guard let sampleImage = await samplePixelsAt(point: point, size: CGSize(width: 1, height: 1)) else {
+            return nil
+        }
+        
+        guard let cgImage = sampleImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            return nil
+        }
+        
+        let pixelData = cgImage.dataProvider?.data
+        guard let data = pixelData else { return nil }
+        let dataPtr = CFDataGetBytePtr(data)
+        guard let ptr = dataPtr else { return nil }
+        
+        let bytesPerPixel = 4
+        let pixelInfo = bytesPerPixel * 0
+        
+        let red = Int(ptr[pixelInfo])
+        let green = Int(ptr[pixelInfo + 1])
+        let blue = Int(ptr[pixelInfo + 2])
+        
+        return (red: red, green: green, blue: blue)
+    }
 }

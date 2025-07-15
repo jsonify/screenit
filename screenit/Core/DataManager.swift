@@ -49,7 +49,7 @@ class DataManager: ObservableObject {
     
     func loadCaptureItems() {
         let request: NSFetchRequest<CaptureItem> = CaptureItem.fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(keyPath: \CaptureItem.timestamp, ascending: false)]
+        request.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: false)]
         request.fetchLimit = 10
         
         do {
@@ -110,7 +110,7 @@ class DataManager: ObservableObject {
     
     private func cleanupOldCaptures() {
         let request: NSFetchRequest<CaptureItem> = CaptureItem.fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(keyPath: \CaptureItem.timestamp, ascending: false)]
+        request.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: false)]
         
         do {
             let allItems = try viewContext.fetch(request)

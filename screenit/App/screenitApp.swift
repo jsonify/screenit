@@ -8,8 +8,15 @@
 import SwiftUI
 import AppKit
 
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
+    }
+}
+
 @main
 struct screenitApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var captureEngine = CaptureEngine()
     @StateObject private var annotationEngine = AnnotationEngine()
     @StateObject private var dataManager = DataManager.shared
@@ -18,10 +25,6 @@ struct screenitApp: App {
     @State private var showingCaptureOverlay = false
     @State private var showingHistory = false
     @State private var showingPermissionRequest = false
-    
-    init() {
-        NSApp.setActivationPolicy(.accessory)
-    }
     
     var body: some Scene {
         Settings {
@@ -73,7 +76,7 @@ struct screenitApp: App {
             .ignoresSafeArea()
         }
         .windowStyle(.plain)
-        .windowLevel(.screenSaver)
+        .windowLevel(.floating)
         .windowResizability(.contentSize)
         
         Window("Permission Request", id: "permission-request") {
