@@ -46,7 +46,7 @@ This file tracks the development roadmap for screenit organized by priority.
   - [ ] Escape to cancel, Enter/Space to confirm
   - [ ] Visual feedback (dimmed background, selection highlight) -->
 
-### 📸 Screen Capture Engine
+<!-- ### 📸 Screen Capture Engine
 - **Status**: Open
 - **Priority**: High
 - **Description**: Implement core screenshot functionality using ScreenCaptureKit for selected areas
@@ -55,7 +55,7 @@ This file tracks the development roadmap for screenit organized by priority.
   - [ ] Handle multiple display configurations
   - [ ] Save captured images to Core Data
   - [ ] Generate thumbnail images for history
-  - [ ] Handle capture errors gracefully
+  - [ ] Handle capture errors gracefully -->
 
 ## Medium Priority - Key Features
 

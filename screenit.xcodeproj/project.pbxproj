@@ -6,8 +6,27 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		796117DD2E2754DF0038DFA5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 796116782E25DA520038DFA5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7961167F2E25DA520038DFA5;
+			remoteInfo = screenit;
+		};
+		796117F62E2755110038DFA5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 796116782E25DA520038DFA5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7961167F2E25DA520038DFA5;
+			remoteInfo = screenit;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		796116802E25DA520038DFA5 /* screenit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = screenit.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		796117D92E2754DF0038DFA5 /* screenitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = screenitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		796117F02E2755110038DFA5 /* screenitUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = screenitUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +35,34 @@
 			path = screenit;
 			sourceTree = "<group>";
 		};
+		796117DA2E2754DF0038DFA5 /* screenitTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = screenitTests;
+			sourceTree = "<group>";
+		};
+		796117F12E2755110038DFA5 /* screenitUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = screenitUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		7961167D2E25DA520038DFA5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		796117D62E2754DF0038DFA5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		796117ED2E2755110038DFA5 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +76,8 @@
 			isa = PBXGroup;
 			children = (
 				796116822E25DA520038DFA5 /* screenit */,
+				796117DA2E2754DF0038DFA5 /* screenitTests */,
+				796117F12E2755110038DFA5 /* screenitUITests */,
 				796116812E25DA520038DFA5 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +86,8 @@
 			isa = PBXGroup;
 			children = (
 				796116802E25DA520038DFA5 /* screenit.app */,
+				796117D92E2754DF0038DFA5 /* screenitTests.xctest */,
+				796117F02E2755110038DFA5 /* screenitUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -70,6 +117,52 @@
 			productReference = 796116802E25DA520038DFA5 /* screenit.app */;
 			productType = "com.apple.product-type.application";
 		};
+		796117D82E2754DF0038DFA5 /* screenitTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 796117E12E2754E00038DFA5 /* Build configuration list for PBXNativeTarget "screenitTests" */;
+			buildPhases = (
+				796117D52E2754DF0038DFA5 /* Sources */,
+				796117D62E2754DF0038DFA5 /* Frameworks */,
+				796117D72E2754DF0038DFA5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				796117DE2E2754DF0038DFA5 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				796117DA2E2754DF0038DFA5 /* screenitTests */,
+			);
+			name = screenitTests;
+			packageProductDependencies = (
+			);
+			productName = screenitTests;
+			productReference = 796117D92E2754DF0038DFA5 /* screenitTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		796117EF2E2755110038DFA5 /* screenitUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 796117F82E2755110038DFA5 /* Build configuration list for PBXNativeTarget "screenitUITests" */;
+			buildPhases = (
+				796117EC2E2755110038DFA5 /* Sources */,
+				796117ED2E2755110038DFA5 /* Frameworks */,
+				796117EE2E2755110038DFA5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				796117F72E2755110038DFA5 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				796117F12E2755110038DFA5 /* screenitUITests */,
+			);
+			name = screenitUITests;
+			packageProductDependencies = (
+			);
+			productName = screenitUITests;
+			productReference = 796117F02E2755110038DFA5 /* screenitUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -82,6 +175,14 @@
 				TargetAttributes = {
 					7961167F2E25DA520038DFA5 = {
 						CreatedOnToolsVersion = 16.4;
+					};
+					796117D82E2754DF0038DFA5 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = 7961167F2E25DA520038DFA5;
+					};
+					796117EF2E2755110038DFA5 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = 7961167F2E25DA520038DFA5;
 					};
 				};
 			};
@@ -100,12 +201,28 @@
 			projectRoot = "";
 			targets = (
 				7961167F2E25DA520038DFA5 /* screenit */,
+				796117D82E2754DF0038DFA5 /* screenitTests */,
+				796117EF2E2755110038DFA5 /* screenitUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		7961167E2E25DA520038DFA5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		796117D72E2754DF0038DFA5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		796117EE2E2755110038DFA5 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +239,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		796117D52E2754DF0038DFA5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		796117EC2E2755110038DFA5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		796117DE2E2754DF0038DFA5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7961167F2E25DA520038DFA5 /* screenit */;
+			targetProxy = 796117DD2E2754DF0038DFA5 /* PBXContainerItemProxy */;
+		};
+		796117F72E2755110038DFA5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7961167F2E25DA520038DFA5 /* screenit */;
+			targetProxy = 796117F62E2755110038DFA5 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		7961168A2E25DA560038DFA5 /* Debug */ = {
@@ -299,6 +443,72 @@
 			};
 			name = Release;
 		};
+		796117DF2E2754E00038DFA5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TZD57UD8UQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jsonify.screenitTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/screenit.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/screenit";
+			};
+			name = Debug;
+		};
+		796117E02E2754E00038DFA5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TZD57UD8UQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jsonify.screenitTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/screenit.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/screenit";
+			};
+			name = Release;
+		};
+		796117F92E2755110038DFA5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TZD57UD8UQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jsonify.screenitUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = screenit;
+			};
+			name = Debug;
+		};
+		796117FA2E2755110038DFA5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TZD57UD8UQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jsonify.screenitUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = screenit;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -316,6 +526,24 @@
 			buildConfigurations = (
 				7961168D2E25DA560038DFA5 /* Debug */,
 				7961168E2E25DA560038DFA5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		796117E12E2754E00038DFA5 /* Build configuration list for PBXNativeTarget "screenitTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				796117DF2E2754E00038DFA5 /* Debug */,
+				796117E02E2754E00038DFA5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		796117F82E2755110038DFA5 /* Build configuration list for PBXNativeTarget "screenitUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				796117F92E2755110038DFA5 /* Debug */,
+				796117FA2E2755110038DFA5 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
