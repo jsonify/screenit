@@ -7,8 +7,9 @@
 
 import Foundation
 import SwiftUI
+import AppKit
 
-enum AnnotationType: String, CaseIterable {
+enum AnnotationType: String, CaseIterable, Codable {
     case arrow = "arrow"
     case text = "text"
     case rectangle = "rectangle"
@@ -17,7 +18,7 @@ enum AnnotationType: String, CaseIterable {
 }
 
 struct AnnotationTool {
-    let type: AnnotationType
+    var type: AnnotationType
     var color: Color = .red
     var thickness: CGFloat = 2.0
     var fontSize: CGFloat = 16.0
@@ -32,21 +33,37 @@ class AnnotationEngine: ObservableObject {
     
     private var undoStack: [AnnotationData] = []
     private var redoStack: [AnnotationData] = []
+    private let preferences = PreferencesManager.shared
+    
+    init() {
+        loadPreferences()
+    }
     
     func selectTool(_ type: AnnotationType) {
         currentTool.type = type
+        preferences.setAnnotationToolType(type)
     }
     
     func setToolColor(_ color: Color) {
         currentTool.color = color
+        preferences.annotationColor = color.toHex()
     }
     
     func setToolThickness(_ thickness: CGFloat) {
         currentTool.thickness = thickness
+        preferences.annotationThickness = Int(thickness)
     }
     
     func setToolFontSize(_ fontSize: CGFloat) {
         currentTool.fontSize = fontSize
+        preferences.annotationFontSize = Int(fontSize)
+    }
+    
+    private func loadPreferences() {
+        currentTool.type = preferences.getAnnotationToolType()
+        currentTool.color = preferences.getAnnotationColorAsColor()
+        currentTool.thickness = CGFloat(preferences.annotationThickness)
+        currentTool.fontSize = CGFloat(preferences.annotationFontSize)
     }
     
     func addAnnotation(_ annotation: AnnotationData) {
@@ -87,7 +104,7 @@ class AnnotationEngine: ObservableObject {
 }
 
 struct AnnotationData: Identifiable, Codable {
-    let id = UUID()
+    let id: UUID
     let type: AnnotationType
     let position: CGPoint
     let size: CGSize
@@ -97,6 +114,7 @@ struct AnnotationData: Identifiable, Codable {
     let fontSize: CGFloat?
     
     init(type: AnnotationType, position: CGPoint, size: CGSize = .zero, color: Color, thickness: CGFloat = 2.0, text: String? = nil, fontSize: CGFloat? = nil) {
+        self.id = UUID()
         self.type = type
         self.position = position
         self.size = size
@@ -107,9 +125,10 @@ struct AnnotationData: Identifiable, Codable {
     }
 }
 
+
 extension Color {
     func toHex() -> String {
-        let components = UIColor(self).cgColor.components ?? [0, 0, 0, 1]
+        let components = NSColor(self).cgColor.components ?? [0, 0, 0, 1]
         let r = components[0]
         let g = components[1]
         let b = components[2]

@@ -8,24 +8,37 @@
 import SwiftUI
 import AppKit
 
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
+    }
+}
+
 @main
 struct screenitApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var captureEngine = CaptureEngine()
     @StateObject private var annotationEngine = AnnotationEngine()
     @StateObject private var dataManager = DataManager.shared
     @StateObject private var menuBarManager = MenuBarManager()
+    @StateObject private var globalHotkeyManager = GlobalHotkeyManager()
     
     @State private var showingCaptureOverlay = false
     @State private var showingHistory = false
     @State private var showingPermissionRequest = false
-    
-    init() {
-        NSApp.setActivationPolicy(.accessory)
-    }
+    @State private var hasInitialized = false
+    @State private var showingCaptureWindow = false
     
     var body: some Scene {
         Settings {
-            PreferencesView(captureEngine: captureEngine)
+            PreferencesView(captureEngine: captureEngine, globalHotkeyManager: globalHotkeyManager)
+                .onAppear {
+                    if !hasInitialized {
+                        setupManagerRelationships()
+                        setupNotifications()
+                        hasInitialized = true
+                    }
+                }
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
@@ -61,10 +74,10 @@ struct screenitApp: App {
                                 dataManager.addCaptureItem(image: image, annotations: annotationEngine.annotations)
                                 annotationEngine.clearAnnotations()
                             }
-                            showingCaptureOverlay = false
+                            showingCaptureWindow = false
                         },
                         onCancel: {
-                            showingCaptureOverlay = false
+                            showingCaptureWindow = false
                             annotationEngine.clearAnnotations()
                         }
                     )
@@ -73,7 +86,7 @@ struct screenitApp: App {
             .ignoresSafeArea()
         }
         .windowStyle(.plain)
-        .windowLevel(.screenSaver)
+        .windowLevel(.floating)
         .windowResizability(.contentSize)
         
         Window("Permission Request", id: "permission-request") {
@@ -96,6 +109,105 @@ struct screenitApp: App {
         .defaultPosition(.center)
     }
     
+    private func setupManagerRelationships() {
+        menuBarManager.captureEngine = captureEngine
+        menuBarManager.dataManager = dataManager
+        globalHotkeyManager.captureEngine = captureEngine
+    }
+    
+    private func setupNotifications() {
+        NotificationCenter.default.addObserver(
+            forName: .openHistoryWindow,
+            object: nil,
+            queue: .main
+        ) { _ in
+            self.openHistoryWindow()
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: .openPreferencesWindow,
+            object: nil,
+            queue: .main
+        ) { _ in
+            self.openPreferencesWindow()
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: .openCaptureWindow,
+            object: nil,
+            queue: .main
+        ) { _ in
+            self.openCaptureWindow()
+        }
+    }
+    
+    private func openHistoryWindow() {
+        // Try to find existing history window or open new one
+        for window in NSApp.windows {
+            if window.title == "Capture History" {
+                window.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                return
+            }
+        }
+        // If not found, the window will be created by the SwiftUI framework
+        // We can use keyboard shortcut to trigger it
+        let event = NSEvent.keyEvent(
+            with: .keyDown,
+            location: NSPoint.zero,
+            modifierFlags: [.command, .shift],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: "h",
+            charactersIgnoringModifiers: "h",
+            isARepeat: false,
+            keyCode: 4
+        )
+        if let event = event {
+            NSApp.sendEvent(event)
+        }
+    }
+    
+    private func openPreferencesWindow() {
+        // For SwiftUI Settings scenes, we need to use the environment approach
+        // This will open the Settings window defined in the Scene
+        if let settingsWindow = NSApp.windows.first(where: { $0.title == "screenit Settings" }) {
+            settingsWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            // Fallback to keyboard shortcut approach
+            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        }
+    }
+    
+    private func openCaptureWindow() {
+        // Try to find and open the capture overlay window
+        for window in NSApp.windows {
+            if window.identifier?.rawValue == "capture-overlay" {
+                window.makeKeyAndOrderFront(nil)
+                window.orderFrontRegardless()
+                NSApp.activate(ignoringOtherApps: true)
+                return
+            }
+        }
+        
+        // If no window found, create it by toggling showingCaptureWindow
+        showingCaptureWindow = true
+        
+        // Then find it again and make it visible
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            for window in NSApp.windows {
+                if window.identifier?.rawValue == "capture-overlay" {
+                    window.makeKeyAndOrderFront(nil)
+                    window.orderFrontRegardless()
+                    NSApp.activate(ignoringOtherApps: true)
+                    break
+                }
+            }
+        }
+    }
+    
     private func openSystemSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
             NSWorkspace.shared.open(url)
@@ -105,6 +217,7 @@ struct screenitApp: App {
 
 struct PreferencesView: View {
     @ObservedObject var captureEngine: CaptureEngine
+    @ObservedObject var globalHotkeyManager: GlobalHotkeyManager
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -134,11 +247,34 @@ struct PreferencesView: View {
             GroupBox("Keyboard Shortcuts") {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
+                        VStack(alignment: .leading) {
+                            Text("Global Hotkeys")
+                                .fontWeight(.medium)
+                            Text("Enable system-wide keyboard shortcuts")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Toggle("", isOn: Binding(
+                            get: { globalHotkeyManager.isEnabled },
+                            set: { enabled in
+                                if enabled {
+                                    globalHotkeyManager.enableGlobalHotkeys()
+                                } else {
+                                    globalHotkeyManager.disableGlobalHotkeys()
+                                }
+                            }
+                        ))
+                    }
+                    
+                    Divider()
+                    
+                    HStack {
                         Text("Capture Area:")
                         Spacer()
                         Text("⌘⇧4")
                             .font(.system(.body, design: .monospaced))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(globalHotkeyManager.isActuallyWorking ? .primary : .secondary)
                     }
                     
                     HStack {
@@ -147,6 +283,13 @@ struct PreferencesView: View {
                         Text("⌘⇧H")
                             .font(.system(.body, design: .monospaced))
                             .foregroundColor(.secondary)
+                    }
+                    
+                    if globalHotkeyManager.isEnabled && !globalHotkeyManager.isActuallyWorking {
+                        Text("⚠️ Accessibility permission required for global hotkeys")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .padding(8)
@@ -164,6 +307,7 @@ struct PreferencesView: View {
                     Text("Older captures are automatically deleted when the limit is reached.")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(8)
             }
@@ -171,6 +315,6 @@ struct PreferencesView: View {
             Spacer()
         }
         .padding()
-        .frame(width: 400, height: 300)
+        .frame(width: 450, height: 380)
     }
 }

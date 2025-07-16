@@ -46,7 +46,7 @@ struct HistoryView: View {
                         
                         Text("Use Cmd+Shift+4 to capture your first screenshot")
                             .font(.body)
-                            .foregroundColor(.tertiary)
+                            .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                     }
                     Spacer()
@@ -106,11 +106,11 @@ struct CaptureItemView: View {
                 
                 Text("\(item.width) × \(item.height)")
                     .font(.caption2)
-                    .foregroundColor(.tertiary)
+                    .foregroundColor(.secondary)
                 
                 Text(formatFileSize(item.fileSize))
                     .font(.caption2)
-                    .foregroundColor(.tertiary)
+                    .foregroundColor(.secondary)
             }
             
             HStack {
