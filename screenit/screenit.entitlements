@@ -16,5 +16,13 @@
 	<true/>
 	<key>com.apple.security.cs.disable-executable-page-protection</key>
 	<true/>
+	<key>com.apple.security.device.camera</key>
+	<true/>
+	<key>com.apple.security.device.microphone</key>
+	<true/>
+	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.apple.screencapturekit</string>
+	</array>
 </dict>
 </plist>

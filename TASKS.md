@@ -34,7 +34,7 @@ This file tracks the development roadmap for screenit organized by priority.
   - [ ] Provide user guidance for enabling permissions
   - [ ] Graceful fallback when permissions unavailable -->
 
-### 📐 Basic Area Selection UI
+<!-- ### 📐 Basic Area Selection UI
 - **Status**: Open
 - **Priority**: High
 - **Description**: Create crosshair cursor, magnifier window with RGB values, and click-drag rectangle selection
@@ -44,7 +44,7 @@ This file tracks the development roadmap for screenit organized by priority.
   - [ ] Magnifier window showing pixel zoom and RGB values
   - [ ] Click-and-drag rectangle selection
   - [ ] Escape to cancel, Enter/Space to confirm
-  - [ ] Visual feedback (dimmed background, selection highlight)
+  - [ ] Visual feedback (dimmed background, selection highlight) -->
 
 ### 📸 Screen Capture Engine
 - **Status**: Open

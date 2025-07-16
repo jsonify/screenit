@@ -19,56 +19,22 @@ struct CaptureOverlayView: View {
     @State private var magnifierPosition: CGPoint = .zero
     @State private var magnifierImage: NSImage?
     @State private var currentRGB: (red: Int, green: Int, blue: Int) = (0, 0, 0)
+    @State private var isAnnotating = false
+    @State private var capturedImage: NSImage?
     
     let onCaptureComplete: (NSImage?) -> Void
     let onCancel: () -> Void
     
     var body: some View {
         ZStack {
-            if isDragging || !selectionRect.isEmpty {
-                GeometryReader { geometry in
-                    ZStack {
-                        Color.black.opacity(0.4)
-                            .ignoresSafeArea()
-                        
-                        Rectangle()
-                            .frame(width: selectionRect.width, height: selectionRect.height)
-                            .position(x: selectionRect.midX, y: selectionRect.midY)
-                            .blendMode(.destinationOut)
-                    }
-                    .compositingGroup()
-                    
-                    Rectangle()
-                        .stroke(Color.white, lineWidth: 2)
-                        .fill(Color.clear)
-                        .frame(width: selectionRect.width, height: selectionRect.height)
-                        .position(x: selectionRect.midX, y: selectionRect.midY)
-                        .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 1)
-                        .overlay(
-                            Rectangle()
-                                .stroke(Color.black.opacity(0.3), lineWidth: 1)
-                                .frame(width: selectionRect.width, height: selectionRect.height)
-                                .position(x: selectionRect.midX, y: selectionRect.midY)
-                        )
-                    
-                    if selectionRect.width > 60 && selectionRect.height > 30 {
-                        VStack(spacing: 2) {
-                            Text("\(Int(selectionRect.width)) × \(Int(selectionRect.height))")
-                                .font(.system(size: 12, design: .monospaced))
-                                .fontWeight(.medium)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.black.opacity(0.8))
-                        .foregroundColor(.white)
-                        .cornerRadius(4)
-                        .position(
-                            x: selectionRect.midX,
-                            y: selectionRect.minY - 20
-                        )
-                    }
-                }
+            if isAnnotating {
+                // Annotation mode - show captured image with annotation tools
+                annotationModeView
+            } else if isDragging || !selectionRect.isEmpty {
+                // Selection mode - area selection
+                selectionModeView
             } else {
+                // Initial state - full screen overlay
                 Color.black.opacity(0.3)
                     .ignoresSafeArea()
             }
@@ -129,6 +95,110 @@ struct CaptureOverlayView: View {
         .onKeyPress(.space) {
             captureSelection()
             return .handled
+        }
+    }
+    
+    private var selectionModeView: some View {
+        GeometryReader { geometry in
+            ZStack {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                
+                Rectangle()
+                    .frame(width: selectionRect.width, height: selectionRect.height)
+                    .position(x: selectionRect.midX, y: selectionRect.midY)
+                    .blendMode(.destinationOut)
+            }
+            .compositingGroup()
+            
+            Rectangle()
+                .stroke(Color.white, lineWidth: 2)
+                .fill(Color.clear)
+                .frame(width: selectionRect.width, height: selectionRect.height)
+                .position(x: selectionRect.midX, y: selectionRect.midY)
+                .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 1)
+                .overlay(
+                    Rectangle()
+                        .stroke(Color.black.opacity(0.3), lineWidth: 1)
+                        .frame(width: selectionRect.width, height: selectionRect.height)
+                        .position(x: selectionRect.midX, y: selectionRect.midY)
+                )
+            
+            if selectionRect.width > 60 && selectionRect.height > 30 {
+                VStack(spacing: 2) {
+                    Text("\(Int(selectionRect.width)) × \(Int(selectionRect.height))")
+                        .font(.system(size: 12, design: .monospaced))
+                        .fontWeight(.medium)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.black.opacity(0.8))
+                .foregroundColor(.white)
+                .cornerRadius(4)
+                .position(
+                    x: selectionRect.midX,
+                    y: selectionRect.minY - 20
+                )
+            }
+        }
+    }
+    
+    private var annotationModeView: some View {
+        GeometryReader { geometry in
+            ZStack {
+                // Black background
+                Color.black
+                    .ignoresSafeArea()
+                
+                if let image = capturedImage {
+                    VStack {
+                        // Captured image with annotations
+                        ZStack {
+                            Image(nsImage: image)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxWidth: geometry.size.width * 0.9, maxHeight: geometry.size.height * 0.8)
+                            
+                            // Annotation canvas overlay
+                            AnnotationCanvasView(
+                                annotationEngine: annotationEngine,
+                                imageSize: CGSize(width: image.size.width, height: image.size.height)
+                            )
+                            .frame(maxWidth: geometry.size.width * 0.9, maxHeight: geometry.size.height * 0.8)
+                            
+                            // Annotation interaction overlay
+                            AnnotationInteractionView(
+                                annotationEngine: annotationEngine,
+                                imageSize: CGSize(width: image.size.width, height: image.size.height)
+                            )
+                            .frame(maxWidth: geometry.size.width * 0.9, maxHeight: geometry.size.height * 0.8)
+                        }
+                        
+                        // Annotation toolbar
+                        HStack {
+                            AnnotationToolbar(annotationEngine: annotationEngine)
+                            
+                            Spacer()
+                            
+                            // Action buttons
+                            HStack(spacing: 12) {
+                                Button("Cancel") {
+                                    onCancel()
+                                }
+                                .buttonStyle(.bordered)
+                                
+                                Button("Save") {
+                                    finalizeCapture()
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                        }
+                        .padding()
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                        .padding()
+                    }
+                }
+            }
         }
     }
     
@@ -193,9 +263,22 @@ struct CaptureOverlayView: View {
         Task {
             let image = await captureEngine.captureArea(selectionRect)
             await MainActor.run {
-                onCaptureComplete(image)
+                capturedImage = image
+                isAnnotating = true
+                NSCursor.arrow.set() // Change cursor for annotation mode
             }
         }
+    }
+    
+    private func finalizeCapture() {
+        guard let image = capturedImage else {
+            onCancel()
+            return
+        }
+        
+        // TODO: Render annotations onto the image
+        // For now, just complete with the original image
+        onCaptureComplete(image)
     }
 }
 

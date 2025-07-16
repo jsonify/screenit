@@ -47,13 +47,27 @@ class MenuBarManager: ObservableObject {
     private func showContextMenu() {
         let menu = NSMenu()
         
-        menu.addItem(NSMenuItem(title: "Capture Area", action: #selector(captureArea), keyEquivalent: ""))
+        let captureItem = NSMenuItem(title: "Capture Area", action: #selector(captureArea), keyEquivalent: "")
+        captureItem.target = self
+        menu.addItem(captureItem)
+        
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Show History", action: #selector(showHistory), keyEquivalent: "h"))
+        
+        let historyItem = NSMenuItem(title: "Show History", action: #selector(showHistory), keyEquivalent: "h")
+        historyItem.target = self
+        menu.addItem(historyItem)
+        
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Preferences", action: #selector(showPreferences), keyEquivalent: ","))
+        
+        let preferencesItem = NSMenuItem(title: "Preferences", action: #selector(showPreferences), keyEquivalent: ",")
+        preferencesItem.target = self
+        menu.addItem(preferencesItem)
+        
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Quit screenit", action: #selector(quit), keyEquivalent: "q"))
+        
+        let quitItem = NSMenuItem(title: "Quit screenit", action: #selector(quit), keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
         
         statusBarItem?.menu = menu
         statusBarItem?.button?.performClick(nil)
@@ -69,11 +83,13 @@ class MenuBarManager: ObservableObject {
     }
     
     @objc private func showHistory() {
-        
+        // Post notification to open the history window
+        NotificationCenter.default.post(name: .openHistoryWindow, object: nil)
     }
     
     @objc private func showPreferences() {
-        
+        // Post notification to open the preferences window
+        NotificationCenter.default.post(name: .openPreferencesWindow, object: nil)
     }
     
     @objc private func quit() {
@@ -83,6 +99,10 @@ class MenuBarManager: ObservableObject {
     private func triggerCapture() {
         Task {
             await captureEngine?.checkAndRequestPermission()
+            // Post notification to open capture overlay window
+            await MainActor.run {
+                NotificationCenter.default.post(name: .openCaptureWindow, object: nil)
+            }
         }
     }
     
@@ -97,4 +117,11 @@ class MenuBarManager: ObservableObject {
         }
         isVisible = true
     }
+}
+
+// MARK: - Notification Names
+extension Notification.Name {
+    static let openHistoryWindow = Notification.Name("openHistoryWindow")
+    static let openPreferencesWindow = Notification.Name("openPreferencesWindow")
+    static let openCaptureWindow = Notification.Name("openCaptureWindow")
 }

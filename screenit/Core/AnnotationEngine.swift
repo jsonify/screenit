@@ -33,21 +33,37 @@ class AnnotationEngine: ObservableObject {
     
     private var undoStack: [AnnotationData] = []
     private var redoStack: [AnnotationData] = []
+    private let preferences = PreferencesManager.shared
+    
+    init() {
+        loadPreferences()
+    }
     
     func selectTool(_ type: AnnotationType) {
         currentTool.type = type
+        preferences.setAnnotationToolType(type)
     }
     
     func setToolColor(_ color: Color) {
         currentTool.color = color
+        preferences.annotationColor = color.toHex()
     }
     
     func setToolThickness(_ thickness: CGFloat) {
         currentTool.thickness = thickness
+        preferences.annotationThickness = Int(thickness)
     }
     
     func setToolFontSize(_ fontSize: CGFloat) {
         currentTool.fontSize = fontSize
+        preferences.annotationFontSize = Int(fontSize)
+    }
+    
+    private func loadPreferences() {
+        currentTool.type = preferences.getAnnotationToolType()
+        currentTool.color = preferences.getAnnotationColorAsColor()
+        currentTool.thickness = CGFloat(preferences.annotationThickness)
+        currentTool.fontSize = CGFloat(preferences.annotationFontSize)
     }
     
     func addAnnotation(_ annotation: AnnotationData) {
