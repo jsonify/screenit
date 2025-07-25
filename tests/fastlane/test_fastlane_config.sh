@@ -2,10 +2,21 @@
 
 # Test script for Fastlane configuration validation
 # Tests for Task 1: Fastlane Configuration Setup
+# Follows Agent-OS standards for test organization and cleanup
 
 set -e
 
+# Load test utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../test-utils.sh"
+
 echo "Testing Fastlane Configuration Setup..."
+
+# Setup test environment
+test_setup
+
+# Trap cleanup on exit
+trap 'test_cleanup false' EXIT
 
 # Test 1.2: Verify fastlane directory structure exists
 test_fastlane_directory() {
@@ -103,5 +114,8 @@ run_tests() {
 
 # Run tests if script is executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    run_tests
+    exit_code=0
+    run_tests || exit_code=$?
+    test_footer "Fastlane Configuration" $exit_code
+    exit $exit_code
 fi

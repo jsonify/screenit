@@ -157,14 +157,279 @@ platform :mac do
     end
   end
 
+  # Task 5: GitHub Integration and Version Management
+
+  desc "Validate version synchronization with GitHub"
+  lane :validate_github_sync do
+    puts "🔍 Validating version sync with GitHub..."
+    
+    # Get local version from Info.plist
+    info_plist = "../Info.plist"
+    if !File.exist?(info_plist)
+      puts "❌ Info.plist not found at #{info_plist}"
+      next
+    end
+    
+    begin
+      local_version = sh("/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' '#{info_plist}'", log: false).strip
+      puts "   Local version: #{local_version}"
+      
+      # Check if GitHub CLI is available
+      if system("command -v gh > /dev/null 2>&1")
+        # Get latest GitHub release version
+        begin
+          github_version = sh("gh release list --limit 1 --json tagName --jq '.[0].tagName'", log: false).strip.gsub(/^v/, '')
+          puts "   GitHub version: #{github_version}"
+          
+          if local_version == github_version
+            puts "✅ Versions are synchronized"
+          else
+            puts "⚠️  Version mismatch: local=#{local_version}, github=#{github_version}"
+          end
+        rescue
+          puts "ℹ️  No GitHub releases found or repository not configured"
+        end
+      else
+        puts "ℹ️  GitHub CLI not available - skipping remote version check"
+      end
+      
+    rescue => e
+      puts "❌ Error reading version: #{e.message}"
+    end
+  end
+
+  desc "Sync local version with GitHub (with fallback)"
+  lane :sync_version_with_github do
+    puts "🔄 Syncing version with GitHub..."
+    
+    # Check if GitHub CLI is available
+    if system("command -v gh > /dev/null 2>&1")
+      begin
+        # Get latest GitHub release
+        github_version = sh("gh release list --limit 1 --json tagName --jq '.[0].tagName'", log: false).strip.gsub(/^v/, '')
+        
+        if !github_version.empty?
+          puts "   Found GitHub version: #{github_version}"
+          
+          # Update local Info.plist
+          info_plist = "../Info.plist"
+          sh("/usr/libexec/PlistBuddy -c 'Set CFBundleShortVersionString #{github_version}' '#{info_plist}'")
+          puts "✅ Local version updated to #{github_version}"
+        else
+          puts "ℹ️  No GitHub releases found - keeping local version"
+        end
+        
+      rescue => e
+        puts "⚠️  GitHub sync failed: #{e.message}"
+        puts "ℹ️  Continuing with local version"
+      end
+    else
+      puts "ℹ️  GitHub CLI not available - manual version management required"
+    end
+  end
+
+  # Task 6: Release Automation Workflows
+
+  desc "Create beta release with staging branch validation"
+  lane :beta do
+    puts "🚀 Creating beta release..."
+    
+    # Validate we're on staging or main branch
+    current_branch = sh("git rev-parse --abbrev-ref HEAD", log: false).strip
+    if current_branch != "staging" && current_branch != "main"
+      puts "⚠️  Beta releases should be created from 'staging' or 'main' branch"
+      puts "   Current branch: #{current_branch}"
+      puts "   Continue anyway? (y/N)"
+      response = STDIN.gets.chomp.downcase
+      if response != 'y'
+        puts "❌ Beta release cancelled"
+        next
+      end
+    end
+    
+    # Check for uncommitted changes
+    if !sh("git status --porcelain", log: false).strip.empty?
+      puts "❌ Working directory has uncommitted changes"
+      puts "   Please commit or stash changes before creating a release"
+      next
+    end
+    
+    # Create timestamped beta tag
+    timestamp = Time.now.strftime("%Y%m%d-%H%M%S")
+    beta_tag = "beta-#{timestamp}"
+    
+    # Build release version
+    build_release
+    
+    # Create git tag
+    sh("git tag #{beta_tag}")
+    sh("git push origin #{beta_tag}")
+    
+    # Create GitHub release if CLI is available
+    if system("command -v gh > /dev/null 2>&1")
+      begin
+        sh("gh release create #{beta_tag} --title 'Beta Release #{timestamp}' --notes 'Automated beta release' --prerelease")
+        puts "✅ Beta release #{beta_tag} created on GitHub"
+      rescue => e
+        puts "⚠️  GitHub release creation failed: #{e.message}"
+        puts "   Tag #{beta_tag} created locally"
+      end
+    else
+      puts "ℹ️  GitHub CLI not available - tag created locally only"
+    end
+    
+    puts "✅ Beta release #{beta_tag} complete"
+  end
+
+  desc "Create production release with main branch validation"
+  lane :prod do
+    puts "🚀 Creating production release..."
+    
+    # Validate we're on main branch
+    current_branch = sh("git rev-parse --abbrev-ref HEAD", log: false).strip
+    if current_branch != "main"
+      puts "❌ Production releases must be created from 'main' branch"
+      puts "   Current branch: #{current_branch}"
+      next
+    end
+    
+    # Check for uncommitted changes
+    if !sh("git status --porcelain", log: false).strip.empty?
+      puts "❌ Working directory has uncommitted changes"
+      puts "   Please commit or stash changes before creating a release"
+      next
+    end
+    
+    # Get version for tag
+    info_plist = "../Info.plist"
+    version = sh("/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' '#{info_plist}'", log: false).strip
+    prod_tag = "v#{version}"
+    
+    # Build release version
+    build_release
+    
+    # Create git tag
+    sh("git tag #{prod_tag}")
+    sh("git push origin #{prod_tag}")
+    
+    # Create GitHub release if CLI is available
+    if system("command -v gh > /dev/null 2>&1")
+      begin
+        sh("gh release create #{prod_tag} --title 'Release #{version}' --notes 'Production release #{version}' --latest")
+        puts "✅ Production release #{prod_tag} created on GitHub"
+      rescue => e
+        puts "⚠️  GitHub release creation failed: #{e.message}"
+        puts "   Tag #{prod_tag} created locally"
+      end
+    else
+      puts "ℹ️  GitHub CLI not available - tag created locally only"
+    end
+    
+    puts "✅ Production release #{prod_tag} complete"
+  end
+
+  # Task 7: Advanced Automation Features
+
+  desc "Automated beta release with timestamp tagging"
+  lane :auto_beta do
+    puts "🤖 Creating automated beta release..."
+    
+    # Sync with GitHub first
+    sync_version_with_github
+    
+    # Create beta release
+    beta
+    
+    puts "✅ Automated beta release complete"
+  end
+
+  desc "Automated production release with semantic versioning"
+  lane :auto_prod do
+    puts "🤖 Creating automated production release..."
+    
+    # Validate branch
+    current_branch = sh("git rev-parse --abbrev-ref HEAD", log: false).strip
+    if current_branch != "main"
+      puts "❌ Automated production releases must be from 'main' branch"
+      next
+    end
+    
+    # Sync with GitHub first
+    sync_version_with_github
+    
+    # Create production release
+    prod
+    
+    puts "✅ Automated production release complete"
+  end
+
+  desc "Bump version and create release"
+  lane :bump_and_release do |options|
+    puts "📈 Bumping version and creating release..."
+    
+    # Get current version
+    info_plist = "../Info.plist"
+    current_version = sh("/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' '#{info_plist}'", log: false).strip
+    
+    # Parse semantic version
+    version_parts = current_version.split('.').map(&:to_i)
+    if version_parts.length != 3
+      puts "❌ Invalid semantic version format: #{current_version}"
+      puts "   Expected format: MAJOR.MINOR.PATCH"
+      next
+    end
+    
+    # Determine bump type
+    bump_type = options[:type] || 'patch'
+    case bump_type
+    when 'major'
+      version_parts[0] += 1
+      version_parts[1] = 0
+      version_parts[2] = 0
+    when 'minor'
+      version_parts[1] += 1
+      version_parts[2] = 0
+    when 'patch'
+      version_parts[2] += 1
+    else
+      puts "❌ Invalid bump type: #{bump_type}"
+      puts "   Valid options: major, minor, patch"
+      next
+    end
+    
+    new_version = version_parts.join('.')
+    puts "   Bumping from #{current_version} to #{new_version} (#{bump_type})"
+    
+    # Confirm with user
+    puts "   Continue with version bump? (y/N)"
+    response = STDIN.gets.chomp.downcase
+    if response != 'y'
+      puts "❌ Version bump cancelled"
+      next
+    end
+    
+    # Update Info.plist
+    sh("/usr/libexec/PlistBuddy -c 'Set CFBundleShortVersionString #{new_version}' '#{info_plist}'")
+    
+    # Commit version change
+    sh("git add #{info_plist}")
+    sh("git commit -m 'Bump version to #{new_version}'")
+    sh("git push origin #{sh("git rev-parse --abbrev-ref HEAD", log: false).strip}")
+    
+    # Create production release
+    prod
+    
+    puts "✅ Version bumped to #{new_version} and release created"
+  end
+
   # Helper methods
   
   private_lane :build_app_with_script do |options|
     configuration = options[:configuration] || "Debug"
     
-    # For now, use the existing build.sh script
-    # TODO: Replace with proper xcodebuild integration
-    sh("cd .. && ./build.sh")
+    # Use the build script from the automation directory
+    # TODO: Replace with proper xcodebuild integration  
+    sh("cd .. && ./scripts/automation/build.sh")
     
     # For future xcodebuild integration:
     # build_mac_app(
