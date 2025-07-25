@@ -42,3 +42,9 @@ This story addresses the need for proper macOS application lifecycle management 
 1. **Functional Menu Bar Application** - screenit appears in menu bar with clickable status item
 2. **Basic Menu Structure** - Dropdown menu displays with placeholder items and Quit option
 3. **Clean Application Lifecycle** - App launches properly and terminates cleanly without memory leaks
+
+## Spec Documentation
+
+- Tasks: @.agent-os/specs/2025-07-24-menu-bar-application/tasks.md
+- Technical Specification: @.agent-os/specs/2025-07-24-menu-bar-application/sub-specs/technical-spec.md
+- Tests Specification: @.agent-os/specs/2025-07-24-menu-bar-application/sub-specs/tests.md

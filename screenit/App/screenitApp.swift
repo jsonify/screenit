@@ -18,8 +18,18 @@ struct MenuBarView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button("Capture Area") {
+            Button(action: {
                 menuBarManager.triggerCapture()
+            }) {
+                HStack {
+                    Text("Capture Area")
+                    Spacer()
+                    if !menuBarManager.canCapture {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundColor(.orange)
+                            .font(.caption)
+                    }
+                }
             }
             .keyboardShortcut("4", modifiers: [.command, .shift])
             
@@ -45,5 +55,15 @@ struct MenuBarView: View {
             .keyboardShortcut("q", modifiers: .command)
         }
         .padding(.vertical, 4)
+        .alert("Screen Recording Permission Required", isPresented: $menuBarManager.showingPermissionAlert) {
+            Button("Open System Preferences") {
+                menuBarManager.openSystemPreferences()
+            }
+            Button("Cancel") {
+                menuBarManager.dismissPermissionAlert()
+            }
+        } message: {
+            Text(menuBarManager.permissionStatusMessage)
+        }
     }
 }
