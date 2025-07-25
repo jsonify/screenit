@@ -26,12 +26,15 @@ struct screenitApp: App {
     @State private var showingCaptureOverlay = false
     @State private var showingHistory = false
     @State private var showingPermissionRequest = false
+    @State private var showingPreferences = false
     @State private var hasInitialized = false
     @State private var showingCaptureWindow = false
     
     var body: some Scene {
-        Settings {
-            PreferencesView(captureEngine: captureEngine, globalHotkeyManager: globalHotkeyManager)
+        // Menu bar only app - no main window
+        // Initialize managers when the app starts
+        WindowGroup {
+            EmptyView()
                 .onAppear {
                     if !hasInitialized {
                         setupManagerRelationships()
@@ -39,13 +42,28 @@ struct screenitApp: App {
                         hasInitialized = true
                     }
                 }
+                .frame(width: 0, height: 0)
+                .hidden()
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         
+        Window("Preferences", id: "preferences") {
+            PreferencesView(captureEngine: captureEngine, globalHotkeyManager: globalHotkeyManager)
+                .onDisappear {
+                    showingPreferences = false
+                }
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+        
         Window("Capture History", id: "history") {
             HistoryView(dataManager: dataManager)
                 .frame(minWidth: 600, minHeight: 400)
+                .onDisappear {
+                    showingHistory = false
+                }
         }
         .windowStyle(.titleBar)
         .windowResizability(.contentSize)
@@ -53,37 +71,57 @@ struct screenitApp: App {
         .keyboardShortcut("h", modifiers: [.command, .shift])
         
         Window("Capture Overlay", id: "capture-overlay") {
-            Group {
-                if captureEngine.needsPermissionSetup {
-                    PermissionRequestView(
-                        permissionError: captureEngine.permissionError,
-                        onRetry: {
-                            await captureEngine.retryPermissionCheck()
-                        },
-                        onOpenSystemSettings: {
-                            openSystemSettings()
-                        }
-                    )
-                    .background(Color.black.opacity(0.3))
-                } else {
-                    CaptureOverlayView(
-                        captureEngine: captureEngine,
-                        annotationEngine: annotationEngine,
-                        onCaptureComplete: { image in
-                            if let image = image {
-                                dataManager.addCaptureItem(image: image, annotations: annotationEngine.annotations)
+            if showingCaptureWindow {
+                ZStack {
+                    if captureEngine.needsPermissionSetup {
+                        PermissionRequestView(
+                            permissionError: captureEngine.permissionError,
+                            onRetry: {
+                                await captureEngine.retryPermissionCheck()
+                            },
+                            onOpenSystemSettings: {
+                                openSystemSettings()
+                            }
+                        )
+                        .background(Color.black.opacity(0.3))
+                    } else {
+                        CaptureOverlayView(
+                            captureEngine: captureEngine,
+                            annotationEngine: annotationEngine,
+                            onCaptureComplete: { image in
+                                if let image = image {
+                                    dataManager.addCaptureItem(image: image, annotations: annotationEngine.annotations)
+                                    annotationEngine.clearAnnotations()
+                                }
+                                showingCaptureWindow = false
+                            },
+                            onCancel: {
+                                showingCaptureWindow = false
                                 annotationEngine.clearAnnotations()
                             }
-                            showingCaptureWindow = false
-                        },
-                        onCancel: {
-                            showingCaptureWindow = false
-                            annotationEngine.clearAnnotations()
-                        }
-                    )
+                        )
+                    }
                 }
+                .ignoresSafeArea()
+                .onAppear {
+                    // Make sure window appears properly
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        for window in NSApp.windows {
+                            if window.identifier?.rawValue == "capture-overlay" {
+                                window.makeKeyAndOrderFront(nil)
+                                window.orderFrontRegardless()
+                                window.level = .floating
+                                NSApp.activate(ignoringOtherApps: true)
+                                break
+                            }
+                        }
+                    }
+                }
+            } else {
+                EmptyView()
+                    .frame(width: 0, height: 0)
+                    .hidden()
             }
-            .ignoresSafeArea()
         }
         .windowStyle(.plain)
         .windowLevel(.floating)
@@ -137,75 +175,65 @@ struct screenitApp: App {
             object: nil,
             queue: .main
         ) { _ in
+            print("App: Received openCaptureWindow notification")
             self.openCaptureWindow()
         }
     }
     
     private func openHistoryWindow() {
-        // Try to find existing history window or open new one
+        // First try to find and activate existing window
         for window in NSApp.windows {
-            if window.title == "Capture History" {
+            if window.title == "Capture History" || window.identifier?.rawValue == "history" {
                 window.makeKeyAndOrderFront(nil)
                 NSApp.activate(ignoringOtherApps: true)
                 return
             }
         }
-        // If not found, the window will be created by the SwiftUI framework
-        // We can use keyboard shortcut to trigger it
-        let event = NSEvent.keyEvent(
-            with: .keyDown,
-            location: NSPoint.zero,
-            modifierFlags: [.command, .shift],
-            timestamp: 0,
-            windowNumber: 0,
-            context: nil,
-            characters: "h",
-            charactersIgnoringModifiers: "h",
-            isARepeat: false,
-            keyCode: 4
-        )
-        if let event = event {
-            NSApp.sendEvent(event)
+        
+        // Create new history window by setting state
+        showingHistory = true
+        
+        // Give SwiftUI time to create the window, then activate it
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            for window in NSApp.windows {
+                if window.title == "Capture History" || window.identifier?.rawValue == "history" {
+                    window.makeKeyAndOrderFront(nil)
+                    NSApp.activate(ignoringOtherApps: true)
+                    return
+                }
+            }
         }
     }
     
     private func openPreferencesWindow() {
-        // For SwiftUI Settings scenes, we need to use the environment approach
-        // This will open the Settings window defined in the Scene
-        if let settingsWindow = NSApp.windows.first(where: { $0.title == "screenit Settings" }) {
-            settingsWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-        } else {
-            // Fallback to keyboard shortcut approach
-            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        }
-    }
-    
-    private func openCaptureWindow() {
-        // Try to find and open the capture overlay window
+        // First try to find and activate existing window
         for window in NSApp.windows {
-            if window.identifier?.rawValue == "capture-overlay" {
+            if window.title == "Preferences" || window.identifier?.rawValue == "preferences" {
                 window.makeKeyAndOrderFront(nil)
-                window.orderFrontRegardless()
                 NSApp.activate(ignoringOtherApps: true)
                 return
             }
         }
         
-        // If no window found, create it by toggling showingCaptureWindow
-        showingCaptureWindow = true
+        // Create new preferences window by setting state
+        showingPreferences = true
         
-        // Then find it again and make it visible
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        // Give SwiftUI time to create the window, then activate it
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             for window in NSApp.windows {
-                if window.identifier?.rawValue == "capture-overlay" {
+                if window.title == "Preferences" || window.identifier?.rawValue == "preferences" {
                     window.makeKeyAndOrderFront(nil)
-                    window.orderFrontRegardless()
                     NSApp.activate(ignoringOtherApps: true)
-                    break
+                    return
                 }
             }
         }
+    }
+    
+    private func openCaptureWindow() {
+        // Simply set the state - SwiftUI will handle window creation
+        showingCaptureWindow = true
+        print("Opening capture window - showingCaptureWindow set to true")
     }
     
     private func openSystemSettings() {

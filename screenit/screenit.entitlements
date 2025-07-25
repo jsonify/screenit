@@ -24,5 +24,7 @@
 	<array>
 		<string>com.apple.screencapturekit</string>
 	</array>
+	<key>com.apple.security.device.screen-recording</key>
+	<true/>
 </dict>
 </plist>

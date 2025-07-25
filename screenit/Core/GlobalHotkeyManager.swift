@@ -17,14 +17,16 @@ class GlobalHotkeyManager: ObservableObject {
     weak var captureEngine: CaptureEngine?
     
     init() {
-        setupGlobalHotkeys()
+        // Temporarily disable global hotkeys to avoid permission loop
+        // setupGlobalHotkeys()
         
         // Enable hotkeys if preference is set
-        if preferences.globalHotkeysEnabled {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.enableGlobalHotkeys()
-            }
-        }
+        // if preferences.globalHotkeysEnabled {
+        //     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        //         self.enableGlobalHotkeys()
+        //     }
+        // }
+        print("GlobalHotkeyManager: Initialized (hotkeys temporarily disabled)")
     }
     
     deinit {
@@ -41,6 +43,7 @@ class GlobalHotkeyManager: ObservableObject {
         
         startMonitoring()
     }
+    
     
     private func checkAccessibilityPermission() -> Bool {
         return AXIsProcessTrustedWithOptions([

@@ -88,34 +88,44 @@ class CaptureEngine: ObservableObject {
     }
     
     func checkAndRequestPermission() async {
+        print("CaptureEngine: checkAndRequestPermission() called")
         do {
+            print("CaptureEngine: Requesting SCShareableContent...")
             let content = try await withTimeout(seconds: 5.0) {
                 try await SCShareableContent.current
             }
+            
+            print("CaptureEngine: SCShareableContent received, displays count: \(content.displays.count)")
             
             if !content.displays.isEmpty {
                 capturePermissionGranted = true
                 permissionError = nil
                 needsPermissionSetup = false
                 await updateAvailableContent()
+                print("CaptureEngine: Permission granted successfully")
             } else {
                 capturePermissionGranted = false
                 permissionError = .unavailable
                 needsPermissionSetup = true
+                print("CaptureEngine: No displays available")
             }
         } catch is TimeoutError {
             capturePermissionGranted = false
             permissionError = .timeout
             needsPermissionSetup = true
+            print("CaptureEngine: Permission request timed out")
         } catch {
             capturePermissionGranted = false
+            print("CaptureEngine: Permission error: \(error)")
             if error.localizedDescription.contains("not authorized") || 
                error.localizedDescription.contains("permission") {
                 permissionError = .permissionDenied
                 needsPermissionSetup = true
+                print("CaptureEngine: Permission denied")
             } else {
                 permissionError = .systemError(error)
                 needsPermissionSetup = false
+                print("CaptureEngine: System error: \(error)")
             }
         }
     }

@@ -49,6 +49,7 @@ struct CaptureOverlayView: View {
             }
         }
         .onAppear {
+            print("CaptureOverlayView: onAppear called")
             setupCursor()
         }
         .gesture(
