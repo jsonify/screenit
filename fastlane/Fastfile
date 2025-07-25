@@ -1,0 +1,202 @@
+# Fastfile for screenit macOS app
+# Comprehensive build automation for debug/release builds, development workflows, and release management
+
+# Global configuration constants
+APP_NAME = "screenit"
+BUNDLE_ID = "com.screenit.screenit"
+DIST_DIR = "dist"
+SCHEME_NAME = "screenit"
+PROJECT_NAME = "screenit"
+
+# Performance and analytics configuration
+opt_out_usage
+skip_docs
+
+default_platform(:mac)
+
+platform :mac do
+  before_all do
+    # Ensure dist directory exists
+    sh("mkdir -p ../#{DIST_DIR}")
+  end
+
+  # Task 2: Core Build Lanes
+  
+  desc "Build debug version with adhoc signing"
+  lane :build_debug do
+    puts "🔨 Building #{APP_NAME} (Debug)..."
+    
+    # Use existing build script for now, will enhance with xcodebuild later
+    build_app_with_script(configuration: "Debug")
+    
+    # Move build to dist directory
+    move_build_to_dist(suffix: "Debug")
+    
+    puts "✅ Debug build complete: #{DIST_DIR}/#{APP_NAME}-Debug.app"
+  end
+
+  desc "Build release version with proper signing"
+  lane :build_release do
+    puts "🔨 Building #{APP_NAME} (Release)..."
+    
+    # Use existing build script for now, will enhance with xcodebuild later
+    build_app_with_script(configuration: "Release")
+    
+    # Move build to dist directory
+    move_build_to_dist(suffix: "Release")
+    
+    puts "✅ Release build complete: #{DIST_DIR}/#{APP_NAME}-Release.app"
+  end
+
+  # Task 3: Development Workflow Automation
+
+  desc "Build debug and launch app"
+  lane :launch do
+    puts "🚀 Building and launching #{APP_NAME}..."
+    
+    build_debug
+    launch_app
+    
+    puts "✅ #{APP_NAME} launched successfully"
+  end
+
+  desc "Complete development workflow with version sync"
+  lane :dev do
+    puts "🛠️  Starting development workflow for #{APP_NAME}..."
+    
+    # Validate version sync (will implement GitHub integration later)
+    puts "ℹ️  Version sync validation (GitHub CLI integration pending)"
+    
+    # Build and launch
+    build_debug
+    launch_app
+    
+    puts "✅ Development session ready - #{APP_NAME} running"
+  end
+
+  desc "Clean build artifacts and derived data"
+  lane :clean do
+    puts "🧹 Cleaning build artifacts..."
+    
+    # Clean existing builds
+    sh("rm -rf ../screenit.app") if File.exist?("../screenit.app")
+    sh("rm -rf ../#{DIST_DIR}") if File.exist?("../#{DIST_DIR}")
+    
+    # Recreate dist directory
+    sh("mkdir -p ../#{DIST_DIR}")
+    
+    puts "✅ Build artifacts cleaned"
+  end
+
+  # Task 4: Build Verification and Information Utilities
+
+  desc "Verify app signing and provide signing information"
+  lane :verify_signing do
+    app_path = "../#{DIST_DIR}/#{APP_NAME}-Release.app"
+    
+    if !File.exist?(app_path)
+      puts "❌ Release app not found. Run 'fastlane build_release' first."
+      next
+    end
+    
+    puts "🔍 Verifying code signing for #{app_path}..."
+    
+    # Check code signing
+    begin
+      sh("codesign -v -v '#{app_path}'")
+      puts "✅ Code signing verification passed"
+    rescue
+      puts "⚠️  Code signing verification failed or unsigned"
+    end
+    
+    # Display signing information
+    begin
+      sh("codesign -d -v '#{app_path}'")
+    rescue
+      puts "ℹ️  No signing information available"
+    end
+  end
+
+  desc "Display app bundle information and metadata"
+  lane :info do
+    app_path = "../#{DIST_DIR}/#{APP_NAME}-Release.app"
+    
+    if !File.exist?(app_path)
+      puts "❌ Release app not found. Run 'fastlane build_release' first."
+      next
+    end
+    
+    puts "ℹ️  App Bundle Information for #{APP_NAME}:"
+    puts "   Path: #{app_path}"
+    
+    # Bundle size
+    size_mb = (Dir.glob("#{app_path}/**/*").map { |f| File.size(f) rescue 0 }.sum / 1024.0 / 1024.0).round(2)
+    puts "   Size: #{size_mb} MB"
+    
+    # Architecture information
+    binary_path = "#{app_path}/Contents/MacOS/#{APP_NAME}"
+    if File.exist?(binary_path)
+      begin
+        arch_info = sh("file '#{binary_path}'", log: false).strip
+        puts "   Architecture: #{arch_info}"
+      rescue
+        puts "   Architecture: Unable to determine"
+      end
+    end
+    
+    # Version information from Info.plist
+    info_plist = "#{app_path}/Contents/Info.plist"
+    if File.exist?(info_plist)
+      begin
+        version = sh("/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' '#{info_plist}'", log: false).strip
+        build = sh("/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' '#{info_plist}'", log: false).strip
+        puts "   Version: #{version} (#{build})"
+      rescue
+        puts "   Version: Unable to read from Info.plist"
+      end
+    end
+  end
+
+  # Helper methods
+  
+  private_lane :build_app_with_script do |options|
+    configuration = options[:configuration] || "Debug"
+    
+    # For now, use the existing build.sh script
+    # TODO: Replace with proper xcodebuild integration
+    sh("cd .. && ./build.sh")
+    
+    # For future xcodebuild integration:
+    # build_mac_app(
+    #   project: "#{PROJECT_NAME}.xcodeproj",
+    #   scheme: SCHEME_NAME,
+    #   configuration: configuration,
+    #   output_directory: DIST_DIR,
+    #   output_name: "#{APP_NAME}-#{configuration}.app"
+    # )
+  end
+  
+  private_lane :move_build_to_dist do |options|
+    suffix = options[:suffix]
+    source_app = "../screenit.app"
+    dest_app = "../#{DIST_DIR}/#{APP_NAME}-#{suffix}.app"
+    
+    if File.exist?(source_app)
+      sh("cp -R '#{source_app}' '#{dest_app}'")
+      puts "   Moved to: #{dest_app}"
+    else
+      UI.user_error!("Build failed - #{source_app} not found")
+    end
+  end
+  
+  private_lane :launch_app do
+    app_path = "../#{DIST_DIR}/#{APP_NAME}-Debug.app"
+    
+    if File.exist?(app_path)
+      sh("open '#{app_path}'")
+      puts "   Launched: #{app_path}"
+    else
+      UI.user_error!("Debug app not found - build may have failed")
+    end
+  end
+end

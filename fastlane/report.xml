@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="fastlane.lanes">
+    
+    
+    
+      
+      <testcase classname="fastlane.lanes" name="0: opt_out_usage" time="0.000701">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="1: default_platform" time="0.000318">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="2: mkdir -p ../dist" time="0.008688">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="3: Switch to mac build_app_with_script lane" time="0.001086">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="4: cd .. &amp;&amp; ./build.sh" time="3.665364">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="5: Switch to mac move_build_to_dist lane" time="0.000242">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="6: cp -R &apos;../screenit.app&apos; &apos;../dist/screenit-Release.app&apos;" time="0.018031">
+        
+      </testcase>
+    
+  </testsuite>
+</testsuites>

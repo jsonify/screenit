@@ -1,0 +1,16 @@
+# Appfile for screenit macOS app
+
+# Bundle identifier for screenit
+app_identifier("com.screenit.screenit")
+
+# Apple ID for development (placeholder - developers should set this locally)
+# apple_id("your-apple-id@example.com")
+
+# Team ID for development (placeholder - developers should set this locally)  
+# team_id("YOUR_TEAM_ID")
+
+# Platform configuration
+for_platform :mac do
+  # macOS specific configuration
+  app_identifier("com.screenit.screenit")
+end
