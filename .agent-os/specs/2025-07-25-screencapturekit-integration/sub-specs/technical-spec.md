@@ -7,88 +7,79 @@ This is the technical specification for the spec detailed in @.agent-os/specs/20
 
 ## Technical Requirements
 
-- **ScreenCaptureKit Framework**: Import and integrate ScreenCaptureKit for macOS 15+ compatibility
-- **Permission Handling**: Implement screen recording authorization request and status validation
-- **Content Discovery**: Use SCShareableContent to discover available displays and windows
-- **Stream Configuration**: Configure SCStreamConfiguration for high-quality still image capture
-- **Image Processing**: Handle captured sample buffers and convert to CGImage/NSImage formats
-- **File System Integration**: Save captured images as PNG files with descriptive timestamps
-- **Error Recovery**: Comprehensive error handling with user-facing error messages
-- **Memory Management**: Efficient handling of large image buffers and proper resource cleanup
-- **Thread Safety**: Proper async/await usage for UI updates and capture operations
+- **Performance Target**: Screen capture completion within 2 seconds for full screen on typical hardware
+- **Memory Management**: Efficient image buffer handling with automatic cleanup after save operations
+- **Error Recovery**: Graceful handling of all ScreenCaptureKit failure modes with user-actionable messages
+- **Image Quality**: High-fidelity capture using sRGB color space and 32-bit BGRA pixel format
+- **Permission Integration**: Seamless integration with existing ScreenCapturePermissionManager
+- **Logging**: Comprehensive OSLog integration for debugging and performance monitoring
+- **Thread Safety**: All capture operations properly handled on MainActor for SwiftUI integration
 
 ## Approach Options
 
-**Option A: Direct ScreenCaptureKit Implementation**
-- Pros: Maximum control over capture process, optimal performance, latest API features
-- Cons: More complex implementation, requires deeper ScreenCaptureKit knowledge
+**Option A:** Enhance existing CaptureEngine and SCCaptureManager classes
+- Pros: Builds on existing architecture, maintains current patterns, minimal code changes
+- Cons: May inherit existing technical debt, limited restructuring opportunities
 
-**Option B: Wrapper-Based Abstraction** (Selected)
-- Pros: Cleaner separation of concerns, easier testing, gradual ScreenCaptureKit adoption
-- Cons: Additional abstraction layer, potential performance overhead
+**Option B:** Create new CaptureService with clean architecture (Selected)
+- Pros: Clean separation of concerns, better testability, optimized for current requirements
+- Cons: More code changes required, need to migrate existing integrations
 
-**Rationale:** Option B provides better maintainability and allows for easier testing while preserving the flexibility to optimize performance later. The abstraction layer also makes it easier to add additional capture sources in future phases.
+**Option C:** Complete rewrite of capture system
+- Pros: Opportunity for optimal architecture, latest ScreenCaptureKit best practices
+- Cons: High risk, significant development time, potential to break existing functionality
 
-## ScreenCaptureKit Integration Architecture
-
-### Core Components
-
-**SCCaptureManager**: Wrapper class managing ScreenCaptureKit lifecycle
-- Handles authorization requests and status monitoring
-- Manages display content discovery and refresh
-- Configures and executes capture streams
-- Converts sample buffers to usable image formats
-
-**Permission States**: Enum defining authorization status
-- `notDetermined`: Initial state, permission not requested
-- `denied`: User explicitly denied screen recording access
-- `authorized`: Permission granted and validated
-- `restricted`: System policy prevents access
-
-**Capture Pipeline**: Async workflow for image capture
-1. Validate authorization status
-2. Discover available content (displays/windows)
-3. Configure capture stream for target area
-4. Execute single-frame capture
-5. Process sample buffer to CGImage
-6. Apply any necessary transformations
-7. Return processed image data
-
-### Technical Implementation Details
-
-**Framework Integration**:
-```swift
-import ScreenCaptureKit
-
-@available(macOS 12.3, *)
-class SCCaptureManager: ObservableObject {
-    private var availableContent: SCShareableContent?
-    private var captureStream: SCStream?
-}
-```
-
-**Permission Management**:
-- Use SCShareableContent.getExcludingDesktopWindows() to trigger permission dialog
-- Monitor authorization status changes via SCShareableContent availability
-- Provide user guidance for manual permission granting in System Preferences
-
-**Capture Configuration**:
-- SCStreamConfiguration with high-quality settings (width/height, pixel format)
-- Single-frame capture mode rather than continuous streaming
-- Appropriate color space handling for accurate color reproduction
-
-**Image Processing**:
-- CMSampleBuffer to CVPixelBuffer conversion
-- CVPixelBuffer to CGImage transformation
-- PNG encoding for file output with metadata preservation
+**Rationale:** Option B provides the best balance of architectural improvement while building on the solid foundation already established. The existing code shows good patterns that can be enhanced rather than completely replaced.
 
 ## External Dependencies
 
-**ScreenCaptureKit Framework** - Apple's native screen capture framework
-- **Justification:** Required for modern macOS screen capture with proper permission handling and optimal performance. Replaces deprecated CGWindowListCreateImage APIs.
-- **Version:** macOS 12.3+ (optimized for macOS 15+ features)
-- **Usage:** Core capture functionality, permission management, content discovery
+- **ScreenCaptureKit Framework** - Native macOS framework for screen capture operations
+  - **Justification:** Required for professional-grade screen capture with proper permissions and system integration
+  - **Version:** macOS 12.3+ (already integrated, optimizing for macOS 15+ features)
 
-**No Third-Party Dependencies** - Maintains project philosophy of using only Apple frameworks
-- **Rationale:** ScreenCaptureKit provides all necessary functionality for this phase
-- **Future Consideration:** Core Data will be added in Phase 4 for capture history
+- **OSLog Framework** - Native macOS logging framework
+  - **Justification:** Essential for debugging, performance monitoring, and troubleshooting in production
+  - **Version:** Built into macOS, no additional dependencies
+
+- **UniformTypeIdentifiers** - Native framework for file type handling
+  - **Justification:** Already in use for PNG export, ensures proper image format handling
+  - **Version:** Built into macOS 11+, no additional dependencies
+
+## Implementation Architecture  
+
+### Enhanced CaptureEngine Structure
+
+```swift
+@MainActor
+class CaptureEngine: ObservableObject {
+    // Performance monitoring
+    private let performanceTimer = CapturePerformanceTimer()
+    
+    // Enhanced error handling
+    private let errorHandler = CaptureErrorHandler()
+    
+    // Optimized capture configuration
+    private let captureConfigurationManager = CaptureConfigurationManager()
+}
+```
+
+### New Supporting Classes
+
+- **CapturePerformanceTimer**: Monitors capture performance and provides metrics
+- **CaptureErrorHandler**: Centralizes error handling with user-friendly message generation
+- **CaptureConfigurationManager**: Optimizes ScreenCaptureKit settings for different scenarios
+
+### Quality Configuration
+
+- Pixel Format: `kCVPixelFormatType_32BGRA` for optimal quality and compatibility
+- Color Space: `CGColorSpace.sRGB` for consistent color reproduction
+- Cursor Handling: `showsCursor: false` for clean screenshots
+- Display Scaling: Automatic handling of Retina/HiDPI displays
+
+### Error Handling Strategy
+
+1. **Permission Errors**: Integrate with existing ScreenCapturePermissionManager
+2. **Hardware Errors**: Detect and report graphics/display issues  
+3. **Memory Errors**: Handle low memory situations gracefully
+4. **System Errors**: Report macOS-specific capture limitations
+5. **Configuration Errors**: Validate capture settings before operation
