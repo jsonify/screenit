@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UniformTypeIdentifiers
 
 @MainActor
 class MenuBarManager: ObservableObject {
@@ -28,9 +29,22 @@ class MenuBarManager: ObservableObject {
                 return
             }
             
-            // Permission is granted, proceed with capture
+            // Permission is granted, proceed with actual capture
             print("Capture Area triggered - permission granted")
-            // TODO: Implement actual capture functionality
+            
+            // Use CaptureEngine for actual screen capture
+            let captureEngine = CaptureEngine.shared
+            
+            // For now, capture full screen (area selection comes in Phase 2)
+            if let image = await captureEngine.captureFullScreen() {
+                print("Screen captured successfully: \(image.width)x\(image.height)")
+                await saveImageToDesktop(image)
+            } else {
+                print("Screen capture failed")
+                if let error = await captureEngine.lastError {
+                    print("Error: \(error.localizedDescription)")
+                }
+            }
         }
     }
     
@@ -69,6 +83,32 @@ class MenuBarManager: ObservableObject {
         permissionManager.canCapture
     }
     
+    // MARK: - File Saving
+    
+    /// Saves a captured image to Desktop with timestamp filename
+    private func saveImageToDesktop(_ image: CGImage) async {
+        let desktopURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first!
+        let timestamp = DateFormatter().apply {
+            $0.dateFormat = "yyyy-MM-dd-HH-mm-ss"
+        }.string(from: Date())
+        let fileURL = desktopURL.appendingPathComponent("screenit-\(timestamp).png")
+        
+        guard let destination = CGImageDestinationCreateWithURL(fileURL as CFURL, UTType.png.identifier as CFString, 1, nil) else {
+            print("Failed to create image destination")
+            return
+        }
+        
+        CGImageDestinationAddImage(destination, image, nil)
+        
+        if CGImageDestinationFinalize(destination) {
+            print("Image saved to: \(fileURL.path)")
+        } else {
+            print("Failed to save image")
+        }
+    }
+    
+    // MARK: - Other Menu Actions
+    
     func showHistory() {
         print("Show History triggered")
         // TODO: Implement history view in Phase 4
@@ -95,5 +135,14 @@ class MenuBarManager: ObservableObject {
     
     func showMenuBar() {
         isVisible = true
+    }
+}
+
+// MARK: - Extensions
+
+extension DateFormatter {
+    func apply(_ closure: (DateFormatter) -> Void) -> DateFormatter {
+        closure(self)
+        return self
     }
 }

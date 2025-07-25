@@ -1,33 +1,51 @@
 import Foundation
 import CoreGraphics
+import ScreenCaptureKit
 import OSLog
 
-/// Core engine for screen capture functionality
+/// Core engine for screen capture functionality using ScreenCaptureKit
+@MainActor
 class CaptureEngine: ObservableObject {
     
     // MARK: - Singleton
     static let shared = CaptureEngine()
     
     // MARK: - Published Properties
-    @Published var authorizationStatus: String = "authorized" // Simplified for now
+    @Published var authorizationStatus: String = "checking"
     @Published var isCapturing: Bool = false
     @Published var lastError: CaptureError?
     
     // MARK: - Private Properties
     private let logger = Logger(subsystem: "com.screenit.screenit", category: "CaptureEngine")
+    private let scCaptureManager = SCCaptureManager()
+    private let permissionManager = ScreenCapturePermissionManager()
     
     // MARK: - Initialization
     private init() {
-        updateAuthorizationStatus()
+        Task {
+            await updateAuthorizationStatus()
+        }
     }
     
     // MARK: - Authorization Management
     
-    /// Updates the current authorization status
-    func updateAuthorizationStatus() {
-        // For now, assume we have authorization
-        // In a real implementation, this would check ScreenCaptureKit authorization
-        authorizationStatus = "authorized"
+    /// Updates the current authorization status using real ScreenCaptureKit permission
+    func updateAuthorizationStatus() async {
+        logger.info("Checking ScreenCaptureKit authorization status")
+        
+        await permissionManager.checkPermissionStatus()
+        
+        switch permissionManager.permissionStatus {
+        case .granted:
+            authorizationStatus = "authorized"
+        case .denied:
+            authorizationStatus = "denied"
+        case .restricted:
+            authorizationStatus = "restricted"
+        case .notDetermined:
+            authorizationStatus = "not_determined"
+        }
+        
         logger.info("Authorization status updated: \(self.authorizationStatus)")
     }
     
@@ -35,15 +53,11 @@ class CaptureEngine: ObservableObject {
     func requestAuthorization() async -> Bool {
         logger.info("Requesting screen capture authorization")
         
-        // Simulate authorization request
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+        let granted = await permissionManager.requestPermission()
+        await updateAuthorizationStatus()
         
-        Task { @MainActor in
-            self.updateAuthorizationStatus()
-        }
-        
-        logger.info("Authorization request result: true")
-        return true
+        logger.info("Authorization request result: \(granted)")
+        return granted
     }
     
     // MARK: - Content Discovery
@@ -51,92 +65,83 @@ class CaptureEngine: ObservableObject {
     /// Refreshes the available shareable content
     func refreshAvailableContent() async {
         logger.info("Refreshing available content")
-        // Simulate content discovery
-        logger.info("Available content refreshed: 1 displays, 0 windows")
+        await scCaptureManager.refreshShareableContent()
+        
+        if let error = scCaptureManager.captureError {
+            lastError = error
+            logger.error("Content refresh failed: \(error.localizedDescription)")
+        } else {
+            lastError = nil
+            logger.info("Available content refreshed: \(scCaptureManager.availableDisplays.count) displays")
+        }
     }
     
     // MARK: - Screen Capture
     
-    /// Captures a screenshot of the entire screen
+    /// Captures a screenshot of the entire screen using ScreenCaptureKit
     func captureFullScreen() async -> CGImage? {
-        logger.info("Starting full screen capture")
+        logger.info("Starting full screen capture with ScreenCaptureKit")
         
         guard authorizationStatus == "authorized" else {
             logger.error("Screen capture not authorized")
-            Task { @MainActor in
-                self.lastError = CaptureError.notAuthorized
-            }
+            lastError = CaptureError.notAuthorized
             return nil
         }
         
-        Task { @MainActor in
-            self.isCapturing = true
-            self.lastError = nil
-        }
+        isCapturing = true
+        lastError = nil
         
         defer {
-            Task { @MainActor in
-                self.isCapturing = false
-            }
+            isCapturing = false
         }
         
-        do {
-            // Create a placeholder image for testing
-            // In a real implementation, this would use ScreenCaptureKit
-            let width = 1920
-            let height = 1080
-            let colorSpace = CGColorSpaceCreateDeviceRGB()
-            
-            guard let context = CGContext(
-                data: nil,
-                width: width,
-                height: height,
-                bitsPerComponent: 8,
-                bytesPerRow: 0,
-                space: colorSpace,
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-            ) else {
-                throw CaptureError.captureFailed(NSError(domain: "CaptureEngine", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to create graphics context"]))
-            }
-            
-            // Fill with a gradient background to simulate a screenshot
-            context.setFillColor(CGColor(red: 0.9, green: 0.9, blue: 1.0, alpha: 1.0))
-            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-            
-            guard let screenshot = context.makeImage() else {
-                throw CaptureError.captureFailed(NSError(domain: "CaptureEngine", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to create image from context"]))
-            }
-            
-            logger.info("Screen capture successful: \(screenshot.width)x\(screenshot.height)")
-            return screenshot
-            
-        } catch {
+        // Use SCCaptureManager for real screen capture
+        let image = await scCaptureManager.captureFullScreen()
+        
+        if let error = scCaptureManager.captureError {
+            lastError = error
             logger.error("Screen capture failed: \(error.localizedDescription)")
-            Task { @MainActor in
-                self.lastError = CaptureError.captureFailed(error)
-            }
             return nil
         }
+        
+        if let image = image {
+            logger.info("Screen capture successful: \(image.width)x\(image.height)")
+        }
+        
+        return image
     }
     
-    /// Captures a screenshot of a specific area
+    /// Captures a screenshot of a specific area using ScreenCaptureKit
     func captureArea(_ rect: CGRect) async -> CGImage? {
-        logger.info("Starting area capture: \(rect.width)x\(rect.height)")
+        logger.info("Starting area capture with ScreenCaptureKit: \(rect.width)x\(rect.height)")
         
-        guard let fullScreenImage = await captureFullScreen() else {
+        guard authorizationStatus == "authorized" else {
+            logger.error("Screen capture not authorized")
+            lastError = CaptureError.notAuthorized
             return nil
         }
         
-        // Crop the full screen image to the specified area
-        guard let croppedImage = fullScreenImage.cropping(to: rect) else {
-            Task { @MainActor in
-                self.lastError = CaptureError.imageCroppingFailed
-            }
+        isCapturing = true
+        lastError = nil
+        
+        defer {
+            isCapturing = false
+        }
+        
+        // Use SCCaptureManager for direct area capture
+        let image = await scCaptureManager.captureArea(rect)
+        
+        if let error = scCaptureManager.captureError {
+            lastError = error
+            logger.error("Area capture failed: \(error.localizedDescription)")
             return nil
         }
         
-        logger.info("Area capture successful: \(croppedImage.width)x\(croppedImage.height)")
-        return croppedImage
+        if let image = image {
+            logger.info("Area capture successful: \(image.width)x\(image.height)")
+        }
+        
+        return image
     }
     
     // MARK: - Utility Methods
@@ -144,12 +149,22 @@ class CaptureEngine: ObservableObject {
     /// Clears the last error
     func clearError() {
         lastError = nil
+        scCaptureManager.clearError()
     }
     
-    /// Gets the primary display bounds
+    /// Gets the primary display bounds from ScreenCaptureKit
     var primaryDisplayBounds: CGRect {
-        // Return a standard display size for testing
-        return CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        guard let display = scCaptureManager.primaryDisplay else {
+            // Fallback to standard size if no display available
+            return CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        }
+        
+        return scCaptureManager.displayBounds(for: display)
+    }
+    
+    /// Whether capture functionality is available
+    var canCapture: Bool {
+        return authorizationStatus == "authorized" && scCaptureManager.canCapture
     }
 }
 
