@@ -1,0 +1,42 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+*.xcworkspace
+!default.xcworkspace
+xcuserdata/
+*.moved-aside
+DerivedData/
+*.hmap
+*.ipa
+*.xcscmblueprint
+
+# Build artifacts
+dist/
+screenit.app/
+*.app/
+
+# Temporary files and directories (Agent-OS standard)
+.tmp/
+.logs/
+*.tmp
+*.log
+
+# Fastlane
+fastlane/test_output/
+fastlane/screenshots/
+fastlane/Preview.html
+fastlane/report.xml
+
+# Agent-OS temporary
+.agent-os/tmp/
+
+# IDEs
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.local

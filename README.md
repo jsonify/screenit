@@ -1,6 +1,41 @@
-# screenit - Menu Bar Application
+# screenit
 
-Basic SwiftUI menu bar application for macOS screen capture tool.
+An open source CleanShot X alternative for macOS 15+ built with SwiftUI and ScreenCaptureKit.
+
+## Quick Start
+
+### Build and Run
+```bash
+# Build debug version
+fastlane build_debug
+
+# Build and launch
+fastlane launch
+
+# Run complete development workflow  
+fastlane dev
+```
+
+### Testing
+```bash
+# Run all tests
+./scripts/test-runner.sh
+
+# Run specific test categories
+./scripts/test-runner.sh --fastlane-only
+./scripts/test-runner.sh --integration-only
+```
+
+## Project Organization
+
+This project follows Agent-OS standards for organization and automation:
+
+- **📁 [Documentation](docs/README.md)** - Comprehensive guides organized by purpose
+- **📁 [Tests](tests/)** - Organized test suites with common utilities  
+- **📁 [Scripts](scripts/)** - Automation and utility scripts
+- **📁 [Build System](docs/automation/FASTLANE_USAGE.md)** - Complete build automation
+
+See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for complete organization details.
 
 ## Phase 1 - Core Foundation ✅
 

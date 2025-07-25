@@ -1,0 +1,467 @@
+# Fastfile for screenit macOS app
+# Comprehensive build automation for debug/release builds, development workflows, and release management
+
+# Global configuration constants
+APP_NAME = "screenit"
+BUNDLE_ID = "com.screenit.screenit"
+DIST_DIR = "dist"
+SCHEME_NAME = "screenit"
+PROJECT_NAME = "screenit"
+
+# Performance and analytics configuration
+opt_out_usage
+skip_docs
+
+default_platform(:mac)
+
+platform :mac do
+  before_all do
+    # Ensure dist directory exists
+    sh("mkdir -p ../#{DIST_DIR}")
+  end
+
+  # Task 2: Core Build Lanes
+  
+  desc "Build debug version with adhoc signing"
+  lane :build_debug do
+    puts "🔨 Building #{APP_NAME} (Debug)..."
+    
+    # Use existing build script for now, will enhance with xcodebuild later
+    build_app_with_script(configuration: "Debug")
+    
+    # Move build to dist directory
+    move_build_to_dist(suffix: "Debug")
+    
+    puts "✅ Debug build complete: #{DIST_DIR}/#{APP_NAME}-Debug.app"
+  end
+
+  desc "Build release version with proper signing"
+  lane :build_release do
+    puts "🔨 Building #{APP_NAME} (Release)..."
+    
+    # Use existing build script for now, will enhance with xcodebuild later
+    build_app_with_script(configuration: "Release")
+    
+    # Move build to dist directory
+    move_build_to_dist(suffix: "Release")
+    
+    puts "✅ Release build complete: #{DIST_DIR}/#{APP_NAME}-Release.app"
+  end
+
+  # Task 3: Development Workflow Automation
+
+  desc "Build debug and launch app"
+  lane :launch do
+    puts "🚀 Building and launching #{APP_NAME}..."
+    
+    build_debug
+    launch_app
+    
+    puts "✅ #{APP_NAME} launched successfully"
+  end
+
+  desc "Complete development workflow with version sync"
+  lane :dev do
+    puts "🛠️  Starting development workflow for #{APP_NAME}..."
+    
+    # Validate version sync (will implement GitHub integration later)
+    puts "ℹ️  Version sync validation (GitHub CLI integration pending)"
+    
+    # Build and launch
+    build_debug
+    launch_app
+    
+    puts "✅ Development session ready - #{APP_NAME} running"
+  end
+
+  desc "Clean build artifacts and derived data"
+  lane :clean do
+    puts "🧹 Cleaning build artifacts..."
+    
+    # Clean existing builds
+    sh("rm -rf ../screenit.app") if File.exist?("../screenit.app")
+    sh("rm -rf ../#{DIST_DIR}") if File.exist?("../#{DIST_DIR}")
+    
+    # Recreate dist directory
+    sh("mkdir -p ../#{DIST_DIR}")
+    
+    puts "✅ Build artifacts cleaned"
+  end
+
+  # Task 4: Build Verification and Information Utilities
+
+  desc "Verify app signing and provide signing information"
+  lane :verify_signing do
+    app_path = "../#{DIST_DIR}/#{APP_NAME}-Release.app"
+    
+    if !File.exist?(app_path)
+      puts "❌ Release app not found. Run 'fastlane build_release' first."
+      next
+    end
+    
+    puts "🔍 Verifying code signing for #{app_path}..."
+    
+    # Check code signing
+    begin
+      sh("codesign -v -v '#{app_path}'")
+      puts "✅ Code signing verification passed"
+    rescue
+      puts "⚠️  Code signing verification failed or unsigned"
+    end
+    
+    # Display signing information
+    begin
+      sh("codesign -d -v '#{app_path}'")
+    rescue
+      puts "ℹ️  No signing information available"
+    end
+  end
+
+  desc "Display app bundle information and metadata"
+  lane :info do
+    app_path = "../#{DIST_DIR}/#{APP_NAME}-Release.app"
+    
+    if !File.exist?(app_path)
+      puts "❌ Release app not found. Run 'fastlane build_release' first."
+      next
+    end
+    
+    puts "ℹ️  App Bundle Information for #{APP_NAME}:"
+    puts "   Path: #{app_path}"
+    
+    # Bundle size
+    size_mb = (Dir.glob("#{app_path}/**/*").map { |f| File.size(f) rescue 0 }.sum / 1024.0 / 1024.0).round(2)
+    puts "   Size: #{size_mb} MB"
+    
+    # Architecture information
+    binary_path = "#{app_path}/Contents/MacOS/#{APP_NAME}"
+    if File.exist?(binary_path)
+      begin
+        arch_info = sh("file '#{binary_path}'", log: false).strip
+        puts "   Architecture: #{arch_info}"
+      rescue
+        puts "   Architecture: Unable to determine"
+      end
+    end
+    
+    # Version information from Info.plist
+    info_plist = "#{app_path}/Contents/Info.plist"
+    if File.exist?(info_plist)
+      begin
+        version = sh("/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' '#{info_plist}'", log: false).strip
+        build = sh("/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' '#{info_plist}'", log: false).strip
+        puts "   Version: #{version} (#{build})"
+      rescue
+        puts "   Version: Unable to read from Info.plist"
+      end
+    end
+  end
+
+  # Task 5: GitHub Integration and Version Management
+
+  desc "Validate version synchronization with GitHub"
+  lane :validate_github_sync do
+    puts "🔍 Validating version sync with GitHub..."
+    
+    # Get local version from Info.plist
+    info_plist = "../Info.plist"
+    if !File.exist?(info_plist)
+      puts "❌ Info.plist not found at #{info_plist}"
+      next
+    end
+    
+    begin
+      local_version = sh("/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' '#{info_plist}'", log: false).strip
+      puts "   Local version: #{local_version}"
+      
+      # Check if GitHub CLI is available
+      if system("command -v gh > /dev/null 2>&1")
+        # Get latest GitHub release version
+        begin
+          github_version = sh("gh release list --limit 1 --json tagName --jq '.[0].tagName'", log: false).strip.gsub(/^v/, '')
+          puts "   GitHub version: #{github_version}"
+          
+          if local_version == github_version
+            puts "✅ Versions are synchronized"
+          else
+            puts "⚠️  Version mismatch: local=#{local_version}, github=#{github_version}"
+          end
+        rescue
+          puts "ℹ️  No GitHub releases found or repository not configured"
+        end
+      else
+        puts "ℹ️  GitHub CLI not available - skipping remote version check"
+      end
+      
+    rescue => e
+      puts "❌ Error reading version: #{e.message}"
+    end
+  end
+
+  desc "Sync local version with GitHub (with fallback)"
+  lane :sync_version_with_github do
+    puts "🔄 Syncing version with GitHub..."
+    
+    # Check if GitHub CLI is available
+    if system("command -v gh > /dev/null 2>&1")
+      begin
+        # Get latest GitHub release
+        github_version = sh("gh release list --limit 1 --json tagName --jq '.[0].tagName'", log: false).strip.gsub(/^v/, '')
+        
+        if !github_version.empty?
+          puts "   Found GitHub version: #{github_version}"
+          
+          # Update local Info.plist
+          info_plist = "../Info.plist"
+          sh("/usr/libexec/PlistBuddy -c 'Set CFBundleShortVersionString #{github_version}' '#{info_plist}'")
+          puts "✅ Local version updated to #{github_version}"
+        else
+          puts "ℹ️  No GitHub releases found - keeping local version"
+        end
+        
+      rescue => e
+        puts "⚠️  GitHub sync failed: #{e.message}"
+        puts "ℹ️  Continuing with local version"
+      end
+    else
+      puts "ℹ️  GitHub CLI not available - manual version management required"
+    end
+  end
+
+  # Task 6: Release Automation Workflows
+
+  desc "Create beta release with staging branch validation"
+  lane :beta do
+    puts "🚀 Creating beta release..."
+    
+    # Validate we're on staging or main branch
+    current_branch = sh("git rev-parse --abbrev-ref HEAD", log: false).strip
+    if current_branch != "staging" && current_branch != "main"
+      puts "⚠️  Beta releases should be created from 'staging' or 'main' branch"
+      puts "   Current branch: #{current_branch}"
+      puts "   Continue anyway? (y/N)"
+      response = STDIN.gets.chomp.downcase
+      if response != 'y'
+        puts "❌ Beta release cancelled"
+        next
+      end
+    end
+    
+    # Check for uncommitted changes
+    if !sh("git status --porcelain", log: false).strip.empty?
+      puts "❌ Working directory has uncommitted changes"
+      puts "   Please commit or stash changes before creating a release"
+      next
+    end
+    
+    # Create timestamped beta tag
+    timestamp = Time.now.strftime("%Y%m%d-%H%M%S")
+    beta_tag = "beta-#{timestamp}"
+    
+    # Build release version
+    build_release
+    
+    # Create git tag
+    sh("git tag #{beta_tag}")
+    sh("git push origin #{beta_tag}")
+    
+    # Create GitHub release if CLI is available
+    if system("command -v gh > /dev/null 2>&1")
+      begin
+        sh("gh release create #{beta_tag} --title 'Beta Release #{timestamp}' --notes 'Automated beta release' --prerelease")
+        puts "✅ Beta release #{beta_tag} created on GitHub"
+      rescue => e
+        puts "⚠️  GitHub release creation failed: #{e.message}"
+        puts "   Tag #{beta_tag} created locally"
+      end
+    else
+      puts "ℹ️  GitHub CLI not available - tag created locally only"
+    end
+    
+    puts "✅ Beta release #{beta_tag} complete"
+  end
+
+  desc "Create production release with main branch validation"
+  lane :prod do
+    puts "🚀 Creating production release..."
+    
+    # Validate we're on main branch
+    current_branch = sh("git rev-parse --abbrev-ref HEAD", log: false).strip
+    if current_branch != "main"
+      puts "❌ Production releases must be created from 'main' branch"
+      puts "   Current branch: #{current_branch}"
+      next
+    end
+    
+    # Check for uncommitted changes
+    if !sh("git status --porcelain", log: false).strip.empty?
+      puts "❌ Working directory has uncommitted changes"
+      puts "   Please commit or stash changes before creating a release"
+      next
+    end
+    
+    # Get version for tag
+    info_plist = "../Info.plist"
+    version = sh("/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' '#{info_plist}'", log: false).strip
+    prod_tag = "v#{version}"
+    
+    # Build release version
+    build_release
+    
+    # Create git tag
+    sh("git tag #{prod_tag}")
+    sh("git push origin #{prod_tag}")
+    
+    # Create GitHub release if CLI is available
+    if system("command -v gh > /dev/null 2>&1")
+      begin
+        sh("gh release create #{prod_tag} --title 'Release #{version}' --notes 'Production release #{version}' --latest")
+        puts "✅ Production release #{prod_tag} created on GitHub"
+      rescue => e
+        puts "⚠️  GitHub release creation failed: #{e.message}"
+        puts "   Tag #{prod_tag} created locally"
+      end
+    else
+      puts "ℹ️  GitHub CLI not available - tag created locally only"
+    end
+    
+    puts "✅ Production release #{prod_tag} complete"
+  end
+
+  # Task 7: Advanced Automation Features
+
+  desc "Automated beta release with timestamp tagging"
+  lane :auto_beta do
+    puts "🤖 Creating automated beta release..."
+    
+    # Sync with GitHub first
+    sync_version_with_github
+    
+    # Create beta release
+    beta
+    
+    puts "✅ Automated beta release complete"
+  end
+
+  desc "Automated production release with semantic versioning"
+  lane :auto_prod do
+    puts "🤖 Creating automated production release..."
+    
+    # Validate branch
+    current_branch = sh("git rev-parse --abbrev-ref HEAD", log: false).strip
+    if current_branch != "main"
+      puts "❌ Automated production releases must be from 'main' branch"
+      next
+    end
+    
+    # Sync with GitHub first
+    sync_version_with_github
+    
+    # Create production release
+    prod
+    
+    puts "✅ Automated production release complete"
+  end
+
+  desc "Bump version and create release"
+  lane :bump_and_release do |options|
+    puts "📈 Bumping version and creating release..."
+    
+    # Get current version
+    info_plist = "../Info.plist"
+    current_version = sh("/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' '#{info_plist}'", log: false).strip
+    
+    # Parse semantic version
+    version_parts = current_version.split('.').map(&:to_i)
+    if version_parts.length != 3
+      puts "❌ Invalid semantic version format: #{current_version}"
+      puts "   Expected format: MAJOR.MINOR.PATCH"
+      next
+    end
+    
+    # Determine bump type
+    bump_type = options[:type] || 'patch'
+    case bump_type
+    when 'major'
+      version_parts[0] += 1
+      version_parts[1] = 0
+      version_parts[2] = 0
+    when 'minor'
+      version_parts[1] += 1
+      version_parts[2] = 0
+    when 'patch'
+      version_parts[2] += 1
+    else
+      puts "❌ Invalid bump type: #{bump_type}"
+      puts "   Valid options: major, minor, patch"
+      next
+    end
+    
+    new_version = version_parts.join('.')
+    puts "   Bumping from #{current_version} to #{new_version} (#{bump_type})"
+    
+    # Confirm with user
+    puts "   Continue with version bump? (y/N)"
+    response = STDIN.gets.chomp.downcase
+    if response != 'y'
+      puts "❌ Version bump cancelled"
+      next
+    end
+    
+    # Update Info.plist
+    sh("/usr/libexec/PlistBuddy -c 'Set CFBundleShortVersionString #{new_version}' '#{info_plist}'")
+    
+    # Commit version change
+    sh("git add #{info_plist}")
+    sh("git commit -m 'Bump version to #{new_version}'")
+    sh("git push origin #{sh("git rev-parse --abbrev-ref HEAD", log: false).strip}")
+    
+    # Create production release
+    prod
+    
+    puts "✅ Version bumped to #{new_version} and release created"
+  end
+
+  # Helper methods
+  
+  private_lane :build_app_with_script do |options|
+    configuration = options[:configuration] || "Debug"
+    
+    # Use the build script from the automation directory
+    # TODO: Replace with proper xcodebuild integration  
+    sh("cd .. && ./scripts/automation/build.sh")
+    
+    # For future xcodebuild integration:
+    # build_mac_app(
+    #   project: "#{PROJECT_NAME}.xcodeproj",
+    #   scheme: SCHEME_NAME,
+    #   configuration: configuration,
+    #   output_directory: DIST_DIR,
+    #   output_name: "#{APP_NAME}-#{configuration}.app"
+    # )
+  end
+  
+  private_lane :move_build_to_dist do |options|
+    suffix = options[:suffix]
+    source_app = "../screenit.app"
+    dest_app = "../#{DIST_DIR}/#{APP_NAME}-#{suffix}.app"
+    
+    if File.exist?(source_app)
+      sh("cp -R '#{source_app}' '#{dest_app}'")
+      puts "   Moved to: #{dest_app}"
+    else
+      UI.user_error!("Build failed - #{source_app} not found")
+    end
+  end
+  
+  private_lane :launch_app do
+    app_path = "../#{DIST_DIR}/#{APP_NAME}-Debug.app"
+    
+    if File.exist?(app_path)
+      sh("open '#{app_path}'")
+      puts "   Launched: #{app_path}"
+    else
+      UI.user_error!("Debug app not found - build may have failed")
+    end
+  end
+end
