@@ -72,7 +72,7 @@ class CaptureEngine: ObservableObject {
             logger.error("Content refresh failed: \(error.localizedDescription)")
         } else {
             lastError = nil
-            logger.info("Available content refreshed: \(scCaptureManager.availableDisplays.count) displays")
+            logger.info("Available content refreshed: \(self.scCaptureManager.availableDisplays.count) displays")
         }
     }
     
@@ -168,46 +168,3 @@ class CaptureEngine: ObservableObject {
     }
 }
 
-// MARK: - Error Types
-
-enum CaptureError: LocalizedError, Equatable {
-    case notAuthorized
-    case authorizationFailed(Error)
-    case contentDiscoveryFailed(Error)
-    case noDisplaysAvailable
-    case captureFailed(Error)
-    case imageCroppingFailed
-    
-    var errorDescription: String? {
-        switch self {
-        case .notAuthorized:
-            return "Screen capture permission not granted"
-        case .authorizationFailed(let error):
-            return "Authorization failed: \(error.localizedDescription)"
-        case .contentDiscoveryFailed(let error):
-            return "Failed to discover screen content: \(error.localizedDescription)"
-        case .noDisplaysAvailable:
-            return "No displays available for capture"
-        case .captureFailed(let error):
-            return "Screen capture failed: \(error.localizedDescription)"
-        case .imageCroppingFailed:
-            return "Failed to crop captured image"
-        }
-    }
-    
-    // MARK: - Equatable
-    static func == (lhs: CaptureError, rhs: CaptureError) -> Bool {
-        switch (lhs, rhs) {
-        case (.notAuthorized, .notAuthorized),
-             (.noDisplaysAvailable, .noDisplaysAvailable),
-             (.imageCroppingFailed, .imageCroppingFailed):
-            return true
-        case (.authorizationFailed(let lhsError), .authorizationFailed(let rhsError)),
-             (.contentDiscoveryFailed(let lhsError), .contentDiscoveryFailed(let rhsError)),
-             (.captureFailed(let lhsError), .captureFailed(let rhsError)):
-            return lhsError.localizedDescription == rhsError.localizedDescription
-        default:
-            return false
-        }
-    }
-}

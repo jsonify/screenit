@@ -8,13 +8,20 @@ echo "Building screenit..."
 mkdir -p screenit.app/Contents/MacOS
 mkdir -p screenit.app/Contents/Resources
 
-# Compile the Swift app with both source files
-swiftc -parse-as-library -target x86_64-apple-macos15.0 main.swift CaptureEngine.swift -o screenit.app/Contents/MacOS/screenit
+# Compile all Swift source files for the SwiftUI app
+swiftc -parse-as-library -target x86_64-apple-macos15.0 \
+    screenit/App/screenitApp.swift \
+    screenit/Core/CaptureEngine.swift \
+    screenit/Core/SCCaptureManager.swift \
+    screenit/Core/ScreenCapturePermissionManager.swift \
+    screenit/UI/MenuBar/MenuBarManager.swift \
+    -o screenit.app/Contents/MacOS/screenit \
+    -framework SwiftUI \
+    -framework ScreenCaptureKit \
+    -framework UniformTypeIdentifiers
 
 # Copy Info.plist
 cp Info.plist screenit.app/Contents/
 
 echo "Build complete! Run with: open screenit.app"
 echo "Or run directly: ./screenit.app/Contents/MacOS/screenit"
-echo ""
-echo "To run tests: swift test_capture_engine.swift"

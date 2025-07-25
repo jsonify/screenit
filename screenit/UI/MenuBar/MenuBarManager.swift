@@ -41,7 +41,7 @@ class MenuBarManager: ObservableObject {
                 await saveImageToDesktop(image)
             } else {
                 print("Screen capture failed")
-                if let error = await captureEngine.lastError {
+                if let error = captureEngine.lastError {
                     print("Error: \(error.localizedDescription)")
                 }
             }
