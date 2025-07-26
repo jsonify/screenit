@@ -85,10 +85,16 @@ class MenuBarManager: ObservableObject {
     private let hotkeyManager = GlobalHotkeyManager()
     
     init() {
-        setupMenuBar()
-        setupNotifications()
-        setupTerminationHandling()
-        setupGlobalHotkeys()
+        // Defer heavy initialization to prevent circular dependencies during app launch
+        Task { @MainActor in
+            // Small delay to ensure SwiftUI initialization is complete
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+            
+            setupMenuBar()
+            setupNotifications()
+            setupTerminationHandling()
+            setupGlobalHotkeys()
+        }
     }
     
     deinit {

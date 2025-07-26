@@ -2,6 +2,49 @@ import SwiftUI
 import AppKit
 import CoreGraphics
 
+// MARK: - NSColor Safe Extensions
+
+extension NSColor {
+    /// Safely gets red component by converting to RGB colorspace if needed
+    var safeRedComponent: CGFloat {
+        return toRGBColorSpace().redComponent
+    }
+    
+    /// Safely gets green component by converting to RGB colorspace if needed
+    var safeGreenComponent: CGFloat {
+        return toRGBColorSpace().greenComponent
+    }
+    
+    /// Safely gets blue component by converting to RGB colorspace if needed
+    var safeBlueComponent: CGFloat {
+        return toRGBColorSpace().blueComponent
+    }
+    
+    /// Safely gets alpha component by converting to RGB colorspace if needed
+    var safeAlphaComponent: CGFloat {
+        return toRGBColorSpace().alphaComponent
+    }
+    
+    /// Converts NSColor to RGB colorspace to avoid crashes with Gray colorspace
+    private func toRGBColorSpace() -> NSColor {
+        // Get the current colorspace
+        let colorSpace = self.colorSpace
+        
+        // Check if it's already in RGB-compatible space
+        if colorSpace.colorSpaceModel == .rgb {
+            return self
+        }
+        
+        // Convert to RGB colorspace
+        guard let rgbColor = self.usingColorSpace(.sRGB) else {
+            // Fallback: try generic RGB
+            return self.usingColorSpace(.genericRGB) ?? NSColor(red: 0, green: 0, blue: 0, alpha: 1)
+        }
+        
+        return rgbColor
+    }
+}
+
 /// A floating magnifier window that follows the cursor during area selection
 @MainActor
 class MagnifierWindow: NSWindow {
@@ -263,9 +306,9 @@ struct MagnifierView: View {
                 
                 // RGB values
                 HStack(spacing: 8) {
-                    ColorValueView(label: "R", value: Int(pixelColor.redComponent * 255), color: .red)
-                    ColorValueView(label: "G", value: Int(pixelColor.greenComponent * 255), color: .green)
-                    ColorValueView(label: "B", value: Int(pixelColor.blueComponent * 255), color: .blue)
+                    ColorValueView(label: "R", value: Int(pixelColor.safeRedComponent * 255), color: .red)
+                    ColorValueView(label: "G", value: Int(pixelColor.safeGreenComponent * 255), color: .green)
+                    ColorValueView(label: "B", value: Int(pixelColor.safeBlueComponent * 255), color: .blue)
                 }
                 
                 // Hex color
@@ -291,9 +334,9 @@ struct MagnifierView: View {
     // MARK: - Computed Properties
     
     private var hexColor: String {
-        let red = Int(pixelColor.redComponent * 255)
-        let green = Int(pixelColor.greenComponent * 255)
-        let blue = Int(pixelColor.blueComponent * 255)
+        let red = Int(pixelColor.safeRedComponent * 255)
+        let green = Int(pixelColor.safeGreenComponent * 255)
+        let blue = Int(pixelColor.safeBlueComponent * 255)
         return String(format: "#%02X%02X%02X", red, green, blue)
     }
     
