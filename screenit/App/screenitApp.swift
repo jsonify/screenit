@@ -1,69 +1,58 @@
 import SwiftUI
+import AppKit
 
 @main
 struct screenitApp: App {
     @StateObject private var menuBarManager = MenuBarManager()
     
-    var body: some Scene {
-        MenuBarExtra("screenit", systemImage: "camera.viewfinder") {
-            MenuBarView()
-                .environmentObject(menuBarManager)
-        }
-        .menuBarExtraStyle(.menu)
+    init() {
+        // Configure app as background-only (LSUIElement=true in Info.plist)
+        // This ensures the app doesn't appear in the Dock or Cmd+Tab switcher
+        setupBackgroundAppConfiguration()
     }
-}
-
-struct MenuBarView: View {
-    @EnvironmentObject var menuBarManager: MenuBarManager
     
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button(action: {
-                menuBarManager.triggerCapture()
-            }) {
-                HStack {
-                    Text("Capture Area")
-                    Spacer()
-                    if !menuBarManager.canCapture {
-                        Image(systemName: "exclamationmark.triangle")
-                            .foregroundColor(.orange)
-                            .font(.caption)
-                    }
-                }
-            }
-            .keyboardShortcut("4", modifiers: [.command, .shift])
-            
-            Divider()
-            
-            Button("Show History") {
-                menuBarManager.showHistory()
-            }
-            .keyboardShortcut("h", modifiers: [.command, .shift])
-            
-            Divider()
-            
-            Button("Preferences...") {
-                menuBarManager.showPreferences()
-            }
-            .keyboardShortcut(",", modifiers: .command)
-            
-            Divider()
-            
-            Button("Quit screenit") {
-                menuBarManager.quitApp()
-            }
-            .keyboardShortcut("q", modifiers: .command)
+    var body: some Scene {
+        // Use Settings scene for hidden background app
+        // MenuBarManager handles the actual menu bar integration via NSStatusItem
+        Settings {
+            EmptyView()
         }
-        .padding(.vertical, 4)
-        .alert("Screen Recording Permission Required", isPresented: $menuBarManager.showingPermissionAlert) {
-            Button("Open System Preferences") {
-                menuBarManager.openSystemPreferences()
+        .commands {
+            // Remove default menu bar commands since this is a menu bar only app
+            CommandGroup(replacing: .newItem) { }
+            CommandGroup(replacing: .saveItem) { }
+            CommandGroup(replacing: .importExport) { }
+            CommandGroup(replacing: .toolbar) { }
+            CommandGroup(replacing: .sidebar) { }
+        }
+    }
+    
+    // MARK: - Background App Configuration
+    
+    private func setupBackgroundAppConfiguration() {
+        // Set activation policy to accessory (background app that can be activated)
+        // This is automatically handled by LSUIElement=true in Info.plist
+        // but we can verify and adjust if needed
+        DispatchQueue.main.async {
+            let currentPolicy = NSApp.activationPolicy()
+            
+            // For menu bar apps, .accessory is ideal (can show UI but doesn't appear in Dock)
+            if currentPolicy == .regular {
+                NSApp.setActivationPolicy(.accessory)
+                print("Set app activation policy to accessory for background operation")
             }
-            Button("Cancel") {
-                menuBarManager.dismissPermissionAlert()
-            }
-        } message: {
-            Text(menuBarManager.permissionStatusMessage)
+            
+            // Ensure app doesn't activate on launch
+            NSApp.deactivate()
+            
+            // Enable automatic termination support (matching Info.plist settings)
+            // These are configured in Info.plist with NSSupportsAutomaticTermination and NSSupportsSuddenTermination
+            print("Automatic and sudden termination configured via Info.plist")
+            
+            // Set up proper application delegate behaviors for menu bar apps
+            NSApp.servicesProvider = nil // Disable services menu for background apps
+            
+            print("Background app configuration complete - policy: \(NSApp.activationPolicy())")
         }
     }
 }

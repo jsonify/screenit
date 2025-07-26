@@ -5,52 +5,52 @@
     
     
       
-      <testcase classname="fastlane.lanes" name="0: opt_out_usage" time="0.000485">
+      <testcase classname="fastlane.lanes" name="0: opt_out_usage" time="0.000538">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="1: default_platform" time="0.000237">
+      <testcase classname="fastlane.lanes" name="1: default_platform" time="0.000246">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="2: mkdir -p ../dist" time="0.011991">
+      <testcase classname="fastlane.lanes" name="2: mkdir -p ../dist" time="0.008906">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="3: Switch to mac build_debug lane" time="0.000532">
+      <testcase classname="fastlane.lanes" name="3: Switch to mac build_debug lane" time="0.000443">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="4: Switch to mac build_app_with_script lane" time="0.000231">
+      <testcase classname="fastlane.lanes" name="4: Switch to mac build_app_with_script lane" time="0.00023">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="5: cd .. &amp;&amp; ./scripts/automation/build.sh" time="3.730637">
+      <testcase classname="fastlane.lanes" name="5: cd .. &amp;&amp; ./scripts/automation/build.sh" time="25.711819">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="6: Switch to mac move_build_to_dist lane" time="0.000217">
+      <testcase classname="fastlane.lanes" name="6: Switch to mac move_build_to_dist lane" time="0.000245">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="7: cp -R &apos;../screenit.app&apos; &apos;../dist/screenit-Debug.app&apos;" time="0.01671">
+      <testcase classname="fastlane.lanes" name="7: cp -R &apos;../screenit.app&apos; &apos;../dist/screenit-Debug.app&apos;" time="0.023468">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="8: Switch to mac launch_app lane" time="0.000205">
+      <testcase classname="fastlane.lanes" name="8: Switch to mac launch_app lane" time="0.000269">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="9: open &apos;../dist/screenit-Debug.app&apos;" time="0.129436">
+      <testcase classname="fastlane.lanes" name="9: open &apos;../dist/screenit-Debug.app&apos;" time="0.064588">
         
       </testcase>
     

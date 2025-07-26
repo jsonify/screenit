@@ -1,5 +1,5 @@
 import Foundation
-import ScreenCaptureKit
+@preconcurrency import ScreenCaptureKit
 import OSLog
 
 /// Wrapper class for ScreenCaptureKit capture operations
@@ -110,7 +110,7 @@ class SCCaptureManager: ObservableObject {
                 return nil
             }
             
-            logger.debug("Using optimal configuration: \(configurationManager.configurationDescription(configuration))")
+            logger.debug("Using optimal configuration: \(self.configurationManager.configurationDescription(configuration))")
             
             // Perform the capture
             let sample = try await SCScreenshotManager.captureImage(
@@ -161,13 +161,13 @@ class SCCaptureManager: ObservableObject {
             // Validate configuration before use
             guard configurationManager.isValidConfiguration(configuration) else {
                 let error = CaptureError.invalidCaptureArea
-                logger.error("Invalid capture configuration for area \(rect)")
+                logger.error("Invalid capture configuration for area \(rect.debugDescription)")
                 errorHandler.logError(error, context: "Area capture configuration validation")
                 captureError = error
                 return nil
             }
             
-            logger.debug("Using area configuration: \(configurationManager.configurationDescription(configuration))")
+            logger.debug("Using area configuration: \(self.configurationManager.configurationDescription(configuration))")
             
             // Perform the capture
             let sample = try await SCScreenshotManager.captureImage(
@@ -244,7 +244,7 @@ class SCCaptureManager: ObservableObject {
 
 // MARK: - Error Types
 
-enum CaptureError: LocalizedError, Equatable {
+enum CaptureError: LocalizedError, Equatable, Hashable {
     case notAuthorized
     case authorizationFailed(Error)
     case contentDiscoveryFailed(Error)
@@ -286,6 +286,29 @@ enum CaptureError: LocalizedError, Equatable {
             return lhsError.localizedDescription == rhsError.localizedDescription
         default:
             return false
+        }
+    }
+    
+    // MARK: - Hashable
+    func hash(into hasher: inout Hasher) {
+        switch self {
+        case .notAuthorized:
+            hasher.combine(0)
+        case .authorizationFailed(let error):
+            hasher.combine(1)
+            hasher.combine(error.localizedDescription)
+        case .contentDiscoveryFailed(let error):
+            hasher.combine(2)
+            hasher.combine(error.localizedDescription)
+        case .noDisplaysAvailable:
+            hasher.combine(3)
+        case .captureFailed(let error):
+            hasher.combine(4)
+            hasher.combine(error.localizedDescription)
+        case .imageCroppingFailed:
+            hasher.combine(5)
+        case .invalidCaptureArea:
+            hasher.combine(6)
         }
     }
 }

@@ -17,6 +17,7 @@ DerivedData/
 dist/
 screenit.app/
 *.app/
+.build/
 
 # Temporary files and directories (Agent-OS standard)
 .tmp/

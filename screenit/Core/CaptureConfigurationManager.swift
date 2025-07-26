@@ -193,7 +193,7 @@ class CaptureConfigurationManager: ObservableObject {
     /// - Returns: Descriptive string of the configuration settings
     func configurationDescription(_ config: SCStreamConfiguration) -> String {
         let pixelFormatName = pixelFormatDescription(config.pixelFormat)
-        let colorSpaceName = config.colorSpaceName?.name as String? ?? "Unknown"
+        let colorSpaceName = config.colorSpaceName as String? ?? "Unknown"
         let memoryUsage = formatMemorySize(estimatedMemoryUsage(for: config))
         
         return """
