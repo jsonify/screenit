@@ -1,0 +1,109 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode_15.2.app/Contents/Developer
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Select Xcode version
+      run: sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
+      
+    - name: Show Xcode version
+      run: xcodebuild -version
+      
+    - name: Show Swift version
+      run: swift --version
+      
+    - name: Cache Swift Package Manager
+      uses: actions/cache@v4
+      with:
+        path: |
+          .build
+          ~/Library/Caches/org.swift.swiftpm
+        key: ${{ runner.os }}-spm-${{ hashFiles('Package.swift') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-
+          
+    - name: Resolve Swift Package dependencies
+      run: swift package resolve
+      
+    - name: Build Debug configuration
+      run: |
+        echo "🔨 Building Debug configuration..."
+        swift build --configuration debug
+        
+    - name: Run unit tests
+      run: |
+        echo "🧪 Running unit tests..."
+        swift test --parallel
+        
+    - name: Build Release configuration
+      run: |
+        echo "🚀 Building Release configuration..."
+        swift build --configuration release
+        
+    - name: Check code formatting (if applicable)
+      run: |
+        echo "📝 Checking code formatting..."
+        # Add swift-format or other formatting checks here if needed
+        echo "No formatting checks configured yet"
+        
+    - name: Upload build artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs
+        path: |
+          .build/debug.yaml
+          .build/release.yaml
+        retention-days: 7
+
+  code-quality:
+    name: Code Quality Checks
+    runs-on: macos-latest
+    needs: build-and-test
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Select Xcode version
+      run: sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
+      
+    - name: Run Swift Package Manager audit
+      run: |
+        echo "🔍 Running package audit..."
+        swift package diagnose
+        
+    - name: Check for security vulnerabilities
+      run: |
+        echo "🛡️ Checking for security vulnerabilities..."
+        # Add security scanning tools here if needed
+        echo "No security scanning configured yet"
+        
+    - name: Generate test coverage report
+      run: |
+        echo "📊 Generating test coverage..."
+        swift test --enable-code-coverage
+        
+    - name: Archive code coverage
+      uses: actions/upload-artifact@v4
+      with:
+        name: code-coverage
+        path: |
+          .build/debug/codecov
+        retention-days: 30

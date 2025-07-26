@@ -1,0 +1,264 @@
+name: Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode_15.2.app/Contents/Developer
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Select Xcode version
+      run: sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
+      
+    - name: Extract version from tag
+      id: version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        echo "🏷️ Release version: $VERSION"
+        
+    - name: Cache Xcode build
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/Library/Developer/Xcode/DerivedData
+          ~/Library/Caches/com.apple.dt.Xcode
+        key: ${{ runner.os }}-xcode-release-${{ hashFiles('Package.swift') }}
+        restore-keys: |
+          ${{ runner.os }}-xcode-release-
+          ${{ runner.os }}-xcode-
+          
+    - name: Run tests before release
+      run: |
+        echo "🧪 Running full test suite before release..."
+        xcodebuild test \
+          -scheme screenit \
+          -destination 'platform=macOS' \
+          -derivedDataPath ~/Library/Developer/Xcode/DerivedData
+        
+    - name: Build and Archive Release configuration
+      run: |
+        echo "🚀 Building and archiving Release configuration..."
+        
+        # Clean build folder first
+        xcodebuild clean \
+          -scheme screenit \
+          -derivedDataPath ~/Library/Developer/Xcode/DerivedData
+        
+        # Build for Release with universal binary support
+        xcodebuild archive \
+          -scheme screenit \
+          -configuration Release \
+          -destination 'generic/platform=macOS' \
+          -archivePath screenit.xcarchive \
+          -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
+          ONLY_ACTIVE_ARCH=NO \
+          ARCHS="arm64 x86_64"
+        
+        echo "✅ Archive created with universal binary support"
+        
+    - name: Install Developer ID Certificate (Optional)
+      if: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 != '' }}
+      run: |
+        echo "🔐 Installing Developer ID Certificate..."
+        
+        # Create temporary keychain for signing
+        security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+        security default-keychain -s build.keychain
+        security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+        security set-keychain-settings -t 3600 -u build.keychain
+        
+        # Import certificate
+        echo "${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}" | base64 --decode > certificate.p12
+        security import certificate.p12 -k build.keychain -P "${{ secrets.CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+        
+        # Clean up certificate file
+        rm certificate.p12
+        
+        echo "✅ Certificate installed successfully"
+        
+    - name: Export application
+      run: |
+        echo "📦 Exporting application bundle..."
+        
+        # Create export options plist based on whether we have signing certificates
+        if [[ -n "${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}" ]]; then
+          echo "Using code signing for export..."
+          cat > ExportOptions.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>method</key>
+            <string>developer-id</string>
+            <key>destination</key>
+            <string>export</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+            <key>signingCertificate</key>
+            <string>Developer ID Application</string>
+        </dict>
+        </plist>
+        EOF
+        else
+          echo "Using development export (no code signing)..."
+          cat > ExportOptions.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>method</key>
+            <string>development</string>
+            <key>destination</key>
+            <string>export</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+        </dict>
+        </plist>
+        EOF
+        fi
+        
+        # Export the archive
+        xcodebuild -exportArchive \
+          -archivePath screenit.xcarchive \
+          -exportPath export \
+          -exportOptionsPlist ExportOptions.plist
+        
+        # Verify the exported app
+        ls -la export/
+        
+        echo "✅ Application exported successfully"
+        
+    - name: Code Sign Application (Optional)
+      if: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 != '' }}
+      run: |
+        echo "✍️ Code signing application..."
+        
+        # Sign the application
+        codesign --force --deep --sign "Developer ID Application" export/screenit.app --options runtime
+        
+        # Verify signing
+        codesign --verify --verbose export/screenit.app
+        spctl --assess --verbose export/screenit.app
+        
+        echo "✅ Application signed successfully"
+        
+    - name: Notarize Application (Optional)
+      if: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 != '' && secrets.NOTARIZATION_USERNAME != '' }}
+      run: |
+        echo "📋 Submitting for notarization..."
+        
+        # Create a zip for notarization
+        cd export
+        zip -r screenit-notarization.zip screenit.app
+        cd ..
+        
+        # Submit for notarization
+        xcrun notarytool submit export/screenit-notarization.zip \
+          --apple-id "${{ secrets.NOTARIZATION_USERNAME }}" \
+          --password "${{ secrets.NOTARIZATION_PASSWORD }}" \
+          --team-id "${{ secrets.TEAM_ID }}" \
+          --wait
+        
+        # Staple the notarization ticket
+        xcrun stapler staple export/screenit.app
+        
+        # Verify notarization
+        spctl --assess --verbose export/screenit.app
+        
+        echo "✅ Application notarized successfully"
+        
+    - name: Create DMG (Optional)
+      if: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 != '' }}
+      run: |
+        echo "💿 Creating DMG installer..."
+        
+        # Install create-dmg if not available
+        if ! command -v create-dmg &> /dev/null; then
+          brew install create-dmg
+        fi
+        
+        # Create DMG
+        create-dmg \
+          --volname "screenit ${{ steps.version.outputs.version }}" \
+          --volicon "screenit/Resources/Assets.xcassets/AppIcon.appiconset/app_icon_128.png" \
+          --window-pos 200 120 \
+          --window-size 800 400 \
+          --icon-size 100 \
+          --icon "screenit.app" 200 190 \
+          --hide-extension "screenit.app" \
+          --app-drop-link 600 185 \
+          "screenit-${{ steps.version.outputs.version }}.dmg" \
+          "export/"
+        
+        echo "✅ DMG created successfully"
+        
+    - name: Create ZIP archive
+      run: |
+        echo "🗜️ Creating ZIP archive..."
+        cd export
+        zip -r ../screenit-${{ steps.version.outputs.version }}.zip screenit.app
+        cd ..
+        
+        # Verify archive was created
+        ls -la screenit-${{ steps.version.outputs.version }}.zip
+        echo "✅ ZIP archive created"
+        
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        echo "📝 Generating release notes..."
+        
+        # Get commits since last tag
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "## What's Changed" > release_notes.md
+          echo "" >> release_notes.md
+          git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..HEAD >> release_notes.md
+          echo "" >> release_notes.md
+          echo "" >> release_notes.md
+        else
+          echo "## Initial Release" > release_notes.md
+          echo "" >> release_notes.md
+          echo "This is the first release of screenit!" >> release_notes.md
+          echo "" >> release_notes.md
+        fi
+        
+        echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREVIOUS_TAG...${{ steps.version.outputs.tag }}" >> release_notes.md
+        
+        # Set output for GitHub release
+        {
+          echo 'notes<<EOF'
+          cat release_notes.md
+          echo EOF
+        } >> $GITHUB_OUTPUT
+        
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: screenit ${{ steps.version.outputs.version }}
+        body: ${{ steps.release_notes.outputs.notes }}
+        draft: false
+        prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+        files: |
+          screenit-${{ steps.version.outputs.version }}.zip
+          screenit-${{ steps.version.outputs.version }}.dmg
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Notify success
+      run: |
+        echo "🎉 Release ${{ steps.version.outputs.version }} created successfully!"
+        echo "📥 Download: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }}"
