@@ -435,9 +435,11 @@ class MenuBarManager: ObservableObject {
     // MARK: - Menu Actions
     
     func triggerCapture() {
+        print("🚀 [DEBUG] triggerCapture() called")
         Task {
             // Check permission before attempting capture
             if !permissionManager.canCapture {
+                print("⚠️ [DEBUG] Permission not granted, showing permission dialog")
                 await handlePermissionRequired()
                 return
             }
@@ -445,33 +447,40 @@ class MenuBarManager: ObservableObject {
             // Set capturing state
             isCapturing = true
             updatePerformanceStatus("Starting capture...")
+            print("🔍 [DEBUG] Capture state set, permission granted")
             
             defer {
                 isCapturing = false
+                print("🔍 [DEBUG] Capture state reset")
             }
             
             // Permission is granted, proceed with actual capture
-            print("Capture Area triggered - permission granted")
+            print("✅ [DEBUG] Capture Area triggered - permission granted")
             
             // For now, capture full screen (area selection comes in Phase 2)
+            print("🔍 [DEBUG] Calling captureEngine.captureFullScreen()...")
             if let image = await captureEngine.captureFullScreen() {
-                print("Screen captured successfully: \(image.width)x\(image.height)")
+                print("✅ [DEBUG] Screen captured successfully: \(image.width)x\(image.height)")
                 
                 // Show success feedback
                 let imageSize = "\(image.width)x\(image.height)"
+                print("🔍 [DEBUG] Calling handleCaptureSuccess...")
                 await handleCaptureSuccess(imageSize: imageSize)
                 
                 // Save the image
+                print("🔍 [DEBUG] Calling saveImageToDesktop...")
                 await saveImageToDesktop(image)
+                print("✅ [DEBUG] saveImageToDesktop call completed")
                 
                 // Update performance status
                 updatePerformanceStatus(captureEngine.currentPerformanceMetrics)
                 
             } else {
-                print("Screen capture failed")
+                print("❌ [DEBUG] Screen capture failed - captureEngine returned nil")
                 await handleCaptureError()
             }
         }
+        print("🔍 [DEBUG] triggerCapture() task started")
     }
     
     private func handlePermissionRequired() async {
@@ -567,50 +576,99 @@ class MenuBarManager: ObservableObject {
     
     /// Saves a captured image to Desktop with timestamp filename
     private func saveImageToDesktop(_ image: CGImage) async {
+        print("🔍 [DEBUG] saveImageToDesktop() called - Image dimensions: \(image.width)x\(image.height)")
         updatePerformanceStatus("Saving image...")
         
         do {
-            let desktopURL = try FileManager.default.url(for: .desktopDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+            print("🔍 [DEBUG] Attempting to get Desktop directory URL...")
+            var saveURL: URL
+            var locationName: String
+            
+            // Try Desktop first
+            do {
+                saveURL = try FileManager.default.url(for: .desktopDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+                locationName = "Desktop"
+                print("🔍 [DEBUG] Desktop URL resolved: \(saveURL.path)")
+            } catch {
+                print("⚠️ [DEBUG] Desktop not accessible, falling back to Downloads: \(error)")
+                saveURL = try FileManager.default.url(for: .downloadsDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+                locationName = "Downloads"
+                print("🔍 [DEBUG] Downloads URL resolved: \(saveURL.path)")
+            }
+            
             let timestamp = DateFormatter().apply {
                 $0.dateFormat = "yyyy-MM-dd-HH-mm-ss"
             }.string(from: Date())
-            let fileURL = desktopURL.appendingPathComponent("screenit-\(timestamp).png")
+            let fileURL = saveURL.appendingPathComponent("screenit-\(timestamp).png")
+            print("🔍 [DEBUG] Target file URL: \(fileURL.path)")
             
+            // Check if save directory is writable
+            let isWritable = FileManager.default.isWritableFile(atPath: saveURL.path)
+            print("🔍 [DEBUG] \(locationName) directory writable: \(isWritable)")
+            
+            print("🔍 [DEBUG] Creating CGImageDestination...")
             guard let destination = CGImageDestinationCreateWithURL(fileURL as CFURL, UTType.png.identifier as CFString, 1, nil) else {
+                print("❌ [DEBUG] Failed to create CGImageDestination for: \(fileURL.path)")
                 await handleFileSaveError("Failed to create image destination for file: \(fileURL.lastPathComponent)")
                 return
             }
+            print("✅ [DEBUG] CGImageDestination created successfully")
             
+            print("🔍 [DEBUG] Adding image to destination...")
             CGImageDestinationAddImage(destination, image, nil)
+            print("✅ [DEBUG] Image added to destination")
             
+            print("🔍 [DEBUG] Finalizing image destination...")
             if CGImageDestinationFinalize(destination) {
-                print("Image saved to: \(fileURL.path)")
-                await handleFileSaveSuccess(fileURL: fileURL)
+                print("✅ [DEBUG] CGImageDestinationFinalize succeeded")
+                
+                // Verify file actually exists on disk
+                let fileExists = FileManager.default.fileExists(atPath: fileURL.path)
+                print("🔍 [DEBUG] File exists on disk: \(fileExists)")
+                
+                if fileExists {
+                    let fileAttributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
+                    let fileSize = fileAttributes?[.size] as? Int64 ?? 0
+                    print("🔍 [DEBUG] File size: \(fileSize) bytes")
+                } else {
+                    print("❌ [DEBUG] File does not exist despite successful finalize!")
+                }
+                
+                print("✅ [DEBUG] Image saved to: \(fileURL.path)")
+                await handleFileSaveSuccess(fileURL: fileURL, locationName: locationName)
             } else {
+                print("❌ [DEBUG] CGImageDestinationFinalize failed")
                 await handleFileSaveError("Failed to finalize image file at: \(fileURL.lastPathComponent)")
             }
         } catch {
+            print("❌ [DEBUG] Exception in saveImageToDesktop: \(error)")
             await handleFileSaveError("Failed to access Desktop directory: \(error.localizedDescription)")
         }
+        
+        print("🔍 [DEBUG] saveImageToDesktop() completed")
     }
     
     /// Handles successful file save
-    private func handleFileSaveSuccess(fileURL: URL) async {
+    private func handleFileSaveSuccess(fileURL: URL, locationName: String) async {
+        print("🎉 [DEBUG] handleFileSaveSuccess() called with URL: \(fileURL.path)")
         let fileName = fileURL.lastPathComponent
         updatePerformanceStatus("Image saved as \(fileName)")
         
         // Update success message to include file location
-        lastSuccessMessage = "Screenshot saved to Desktop as \(fileName)"
+        lastSuccessMessage = "Screenshot saved to \(locationName) as \(fileName)"
+        print("✅ [DEBUG] Success message set: \(lastSuccessMessage)")
         
         // Show brief success notification
         showingSuccessNotification = true
+        print("🔍 [DEBUG] Success notification shown")
         try? await Task.sleep(nanoseconds: 2_000_000_000)
         showingSuccessNotification = false
+        print("🔍 [DEBUG] Success notification hidden")
     }
     
     /// Handles file save errors
     private func handleFileSaveError(_ message: String) async {
-        print("File save error: \(message)")
+        print("💥 [DEBUG] handleFileSaveError() called with message: \(message)")
         lastErrorMessage = """
         Failed to save screenshot.
         
@@ -618,7 +676,9 @@ class MenuBarManager: ObservableObject {
         
         Please ensure you have write access to the Desktop and sufficient disk space.
         """
+        print("❌ [DEBUG] Error message set: \(lastErrorMessage)")
         showingErrorAlert = true
+        print("🚨 [DEBUG] Error alert shown")
         updatePerformanceStatus("Save failed")
     }
     

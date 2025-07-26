@@ -32,7 +32,7 @@ platform :mac do
     # Move build to dist directory
     move_build_to_dist(suffix: "Debug")
     
-    puts "✅ Debug build complete: #{DIST_DIR}/#{APP_NAME}-Debug.app"
+    puts "✅ Debug build complete: #{DIST_DIR}/screenit.app"
   end
 
   desc "Build release version with proper signing"
@@ -444,7 +444,8 @@ platform :mac do
   private_lane :move_build_to_dist do |options|
     suffix = options[:suffix]
     source_app = "../screenit.app"
-    dest_app = "../#{DIST_DIR}/#{APP_NAME}-#{suffix}.app"
+    # For development, just use screenit.app instead of screenit-Debug.app
+    dest_app = suffix == "Debug" ? "../#{DIST_DIR}/screenit.app" : "../#{DIST_DIR}/#{APP_NAME}-#{suffix}.app"
     
     if File.exist?(source_app)
       sh("cp -R '#{source_app}' '#{dest_app}'")
@@ -455,7 +456,7 @@ platform :mac do
   end
   
   private_lane :launch_app do
-    app_path = "../#{DIST_DIR}/#{APP_NAME}-Debug.app"
+    app_path = "../#{DIST_DIR}/screenit.app"
     
     if File.exist?(app_path)
       sh("open '#{app_path}'")
