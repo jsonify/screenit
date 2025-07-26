@@ -42,3 +42,9 @@ The system will handle Developer ID signing, notarization with Apple's notary se
 1. Functional GitHub Actions workflow that builds, tests, and creates signed release artifacts
 2. Automated pull request validation with build status checks and test results
 3. Signed and notarized .app bundles ready for distribution outside the App Store
+
+## Spec Documentation
+
+- Tasks: @.agent-os/specs/2025-07-26-github-actions-ci-cd/tasks.md
+- Technical Specification: @.agent-os/specs/2025-07-26-github-actions-ci-cd/sub-specs/technical-spec.md
+- Tests Specification: @.agent-os/specs/2025-07-26-github-actions-ci-cd/sub-specs/tests.md
