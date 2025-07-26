@@ -75,14 +75,20 @@ class MenuBarManager: ObservableObject {
     @Published var performanceStatus: String = ""
     @Published var statusItemError: String = ""
     
+    // MARK: - Static Properties
+    private static var hasLoggedSecurityContext = false
+    
     // MARK: - Dependencies
     private let permissionManager = ScreenCapturePermissionManager()
     private let captureEngine = CaptureEngine.shared
+    private let overlayManager = CaptureOverlayManager()
+    private let hotkeyManager = GlobalHotkeyManager()
     
     init() {
         setupMenuBar()
         setupNotifications()
         setupTerminationHandling()
+        setupGlobalHotkeys()
     }
     
     deinit {
@@ -344,8 +350,35 @@ class MenuBarManager: ObservableObject {
     }
     
     private func setupNotifications() {
-        // Future: Set up global hotkey monitoring
-        // For now, keyboard shortcuts are handled by MenuBarExtra
+        // Future: Set up additional notification monitoring
+        // Global hotkeys are now handled by setupGlobalHotkeys()
+    }
+    
+    // MARK: - Global Hotkey Setup
+    
+    private func setupGlobalHotkeys() {
+        print("Setting up global hotkeys")
+        
+        Task {
+            // Register the capture area hotkey
+            let success = await hotkeyManager.registerCaptureAreaHotkey { [weak self] in
+                Task { @MainActor in
+                    print("🎯 Global hotkey triggered - Cmd+Shift+4")
+                    self?.triggerCapture()
+                }
+            }
+            
+            if success {
+                print("✅ Global hotkey registered successfully")
+            } else {
+                print("⚠️ Failed to register global hotkey: \(hotkeyManager.errorMessage ?? "Unknown error")")
+                
+                // If accessibility permission is needed, we can show a notification
+                if !hotkeyManager.isAvailable {
+                    print("💡 Accessibility permission required for global hotkeys")
+                }
+            }
+        }
     }
     
     // MARK: - Termination Handling
@@ -444,41 +477,22 @@ class MenuBarManager: ObservableObject {
                 return
             }
             
-            // Set capturing state
-            isCapturing = true
-            updatePerformanceStatus("Starting capture...")
-            print("🔍 [DEBUG] Capture state set, permission granted")
+            // Show area selection overlay
+            print("🔍 [DEBUG] Showing area selection overlay")
+            updatePerformanceStatus("Select area to capture...")
             
-            defer {
-                isCapturing = false
-                print("🔍 [DEBUG] Capture state reset")
-            }
-            
-            // Permission is granted, proceed with actual capture
-            print("✅ [DEBUG] Capture Area triggered - permission granted")
-            
-            // For now, capture full screen (area selection comes in Phase 2)
-            print("🔍 [DEBUG] Calling captureEngine.captureFullScreen()...")
-            if let image = await captureEngine.captureFullScreen() {
-                print("✅ [DEBUG] Screen captured successfully: \(image.width)x\(image.height)")
-                
-                // Show success feedback
-                let imageSize = "\(image.width)x\(image.height)"
-                print("🔍 [DEBUG] Calling handleCaptureSuccess...")
-                await handleCaptureSuccess(imageSize: imageSize)
-                
-                // Save the image
-                print("🔍 [DEBUG] Calling saveImageToDesktop...")
-                await saveImageToDesktop(image)
-                print("✅ [DEBUG] saveImageToDesktop call completed")
-                
-                // Update performance status
-                updatePerformanceStatus(captureEngine.currentPerformanceMetrics)
-                
-            } else {
-                print("❌ [DEBUG] Screen capture failed - captureEngine returned nil")
-                await handleCaptureError()
-            }
+            overlayManager.showAreaSelection(
+                onAreaSelected: { [weak self] rect in
+                    Task { @MainActor in
+                        await self?.handleAreaSelected(rect)
+                    }
+                },
+                onCancelled: { [weak self] in
+                    Task { @MainActor in
+                        self?.handleCaptureCancelled()
+                    }
+                }
+            )
         }
         print("🔍 [DEBUG] triggerCapture() task started")
     }
@@ -492,6 +506,51 @@ class MenuBarManager: ObservableObject {
         if !granted {
             // Show alert with instructions
             showingPermissionAlert = true
+        }
+    }
+    
+    /// Handles area selection completion
+    private func handleAreaSelected(_ rect: CGRect) async {
+        print("🔍 [DEBUG] handleAreaSelected() called with rect: \(rect)")
+        
+        // Set capturing state
+        isCapturing = true
+        updatePerformanceStatus("Capturing area...")
+        
+        defer {
+            isCapturing = false
+        }
+        
+        // Capture the selected area
+        print("🔍 [DEBUG] Calling captureEngine.captureArea()...")
+        if let image = await captureEngine.captureArea(rect) {
+            print("✅ [DEBUG] Area captured successfully: \(image.width)x\(image.height)")
+            
+            // Show success feedback
+            let imageSize = "\(image.width)x\(image.height)"
+            await handleCaptureSuccess(imageSize: imageSize)
+            
+            // Save the image
+            await saveImageToDesktop(image)
+            
+            // Update performance status
+            updatePerformanceStatus(captureEngine.currentPerformanceMetrics)
+            
+        } else {
+            print("❌ [DEBUG] Area capture failed - captureEngine returned nil")
+            await handleCaptureError()
+        }
+    }
+    
+    /// Handles capture cancellation
+    private func handleCaptureCancelled() {
+        print("🔍 [DEBUG] handleCaptureCancelled() called")
+        updatePerformanceStatus("Capture cancelled")
+        
+        // Brief delay then clear status
+        Task {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            updatePerformanceStatus("")
         }
     }
     
@@ -572,80 +631,404 @@ class MenuBarManager: ObservableObject {
         permissionManager.canCapture
     }
     
+    // MARK: - Permission and Security Debugging
+    
+    /// Performs comprehensive security and permission auditing for file system access
+    private func auditFileSystemPermissions(for directoryURL: URL, directoryName: String) {
+        let timestamp = DateFormatter().apply {
+            $0.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        }.string(from: Date())
+        
+        print("🔐 [SECURITY] [\(timestamp)] Starting permission audit for \(directoryName)")
+        print("   📁 Directory path: \(directoryURL.path)")
+        
+        // Check basic file manager permissions
+        let isWritable = FileManager.default.isWritableFile(atPath: directoryURL.path)
+        let isReadable = FileManager.default.isReadableFile(atPath: directoryURL.path)
+        let isDeletable = FileManager.default.isDeletableFile(atPath: directoryURL.path)
+        let exists = FileManager.default.fileExists(atPath: directoryURL.path)
+        
+        print("   ✅ Directory exists: \(exists)")
+        print("   🔓 Writable: \(isWritable)")
+        print("   👁️ Readable: \(isReadable)")
+        print("   🗑️ Deletable: \(isDeletable)")
+        
+        // Check directory attributes and permissions
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: directoryURL.path)
+            
+            if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
+                let octalPermissions = String(posixPermissions.uint16Value, radix: 8)
+                print("   🔢 POSIX permissions: \(octalPermissions)")
+                
+                // Decode permissions for user, group, and other
+                let userPerms = (posixPermissions.uint16Value & 0o700) >> 6
+                let groupPerms = (posixPermissions.uint16Value & 0o070) >> 3
+                let otherPerms = posixPermissions.uint16Value & 0o007
+                
+                print("   👤 User permissions: \(userPerms) (\(permissionString(userPerms)))")
+                print("   👥 Group permissions: \(groupPerms) (\(permissionString(groupPerms)))")
+                print("   🌐 Other permissions: \(otherPerms) (\(permissionString(otherPerms)))")
+            }
+            
+            if let owner = attributes[.ownerAccountName] as? String {
+                print("   👤 Owner: \(owner)")
+            }
+            
+            if let group = attributes[.groupOwnerAccountName] as? String {
+                print("   👥 Group: \(group)")
+            }
+            
+        } catch {
+            print("   ⚠️ Could not read directory attributes: \(error)")
+        }
+        
+        // Check app-specific security constraints
+        print("   🛡️ App Security Context:")
+        
+        // Check if we're running in a sandboxed environment
+        let isSandboxed = ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
+        print("   📦 Sandboxed: \(isSandboxed)")
+        
+        // Check bundle identifier
+        let bundleID = Bundle.main.bundleIdentifier ?? "unknown"
+        print("   🏷️ Bundle ID: \(bundleID)")
+        
+        // Check for file system entitlements
+        print("   📋 Security Scoped Access:")
+        let canStartAccessingSecurityScopedResource = directoryURL.startAccessingSecurityScopedResource()
+        print("   🔓 Can access security scoped resource: \(canStartAccessingSecurityScopedResource)")
+        
+        if canStartAccessingSecurityScopedResource {
+            directoryURL.stopAccessingSecurityScopedResource()
+        }
+        
+        print("🔐 [SECURITY] [\(timestamp)] Permission audit completed for \(directoryName)")
+    }
+    
+    /// Converts numeric permission value to human-readable string
+    private func permissionString(_ permission: UInt16) -> String {
+        var result = ""
+        result += (permission & 4) != 0 ? "r" : "-"
+        result += (permission & 2) != 0 ? "w" : "-"
+        result += (permission & 1) != 0 ? "x" : "-"
+        return result
+    }
+    
+    /// Logs comprehensive app entitlements and security context
+    private func logAppSecurityContext() {
+        let timestamp = DateFormatter().apply {
+            $0.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        }.string(from: Date())
+        
+        print("🛡️ [SECURITY] [\(timestamp)] App Security Context Analysis")
+        
+        // Bundle information
+        let bundle = Bundle.main
+        print("   📦 Bundle path: \(bundle.bundlePath)")
+        print("   🏷️ Bundle ID: \(bundle.bundleIdentifier ?? "unknown")")
+        print("   📋 Display name: \(bundle.infoDictionary?["CFBundleDisplayName"] as? String ?? "unknown")")
+        
+        // Executable information
+        if let executablePath = bundle.executablePath {
+            print("   ⚙️ Executable: \(executablePath)")
+            
+            // Check if executable exists and is readable
+            let executableExists = FileManager.default.fileExists(atPath: executablePath)
+            let executableReadable = FileManager.default.isReadableFile(atPath: executablePath)
+            print("   ✅ Executable exists: \(executableExists)")
+            print("   👁️ Executable readable: \(executableReadable)")
+        }
+        
+        // Process information
+        let processInfo = ProcessInfo.processInfo
+        print("   🔢 Process ID: \(processInfo.processIdentifier)")
+        print("   👤 User ID: \(getuid())")
+        print("   👥 Group ID: \(getgid())")
+        
+        // Environment variables related to security
+        print("   🌍 Security Environment Variables:")
+        if let sandboxContainerID = processInfo.environment["APP_SANDBOX_CONTAINER_ID"] {
+            print("      📦 Sandbox Container ID: \(sandboxContainerID)")
+        } else {
+            print("      📦 Sandbox Container ID: Not set (likely not sandboxed)")
+        }
+        
+        if let homeDir = processInfo.environment["HOME"] {
+            print("      🏠 Home directory: \(homeDir)")
+        }
+        
+        if let tmpDir = processInfo.environment["TMPDIR"] {
+            print("      📁 Temp directory: \(tmpDir)")
+        }
+        
+        // Check for common security-related capabilities
+        print("   🔐 Security Capabilities:")
+        
+        // Test ability to access various directories
+        let testDirectories: [(String, FileManager.SearchPathDirectory)] = [
+            ("Desktop", .desktopDirectory),
+            ("Documents", .documentDirectory),
+            ("Downloads", .downloadsDirectory),
+            ("Pictures", .picturesDirectory),
+            ("Movies", .moviesDirectory),
+            ("Music", .musicDirectory)
+        ]
+        
+        for (name, directory) in testDirectories {
+            do {
+                let url = try FileManager.default.url(for: directory, in: .userDomainMask, appropriateFor: nil, create: false)
+                let accessible = FileManager.default.fileExists(atPath: url.path)
+                let writable = FileManager.default.isWritableFile(atPath: url.path)
+                print("      📁 \(name): accessible=\(accessible), writable=\(writable)")
+            } catch {
+                print("      📁 \(name): Error accessing - \(error.localizedDescription)")
+            }
+        }
+        
+        print("🛡️ [SECURITY] [\(timestamp)] App Security Context Analysis complete")
+    }
+    
     // MARK: - File Saving
     
     /// Saves a captured image to Desktop with timestamp filename
     private func saveImageToDesktop(_ image: CGImage) async {
-        print("🔍 [DEBUG] saveImageToDesktop() called - Image dimensions: \(image.width)x\(image.height)")
+        // MARK: - Function Entry Logging
+        let functionStartTime = Date()
+        let timestamp = DateFormatter().apply {
+            $0.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        }.string(from: functionStartTime)
+        
+        print("🚀 [DEBUG] [\(timestamp)] saveImageToDesktop() ENTRY - Function called")
+        print("🔍 [DEBUG] [\(timestamp)] saveImageToDesktop() - Image details:")
+        print("   📐 Dimensions: \(image.width) x \(image.height) pixels")
+        print("   🎨 Color Space: \(image.colorSpace?.name as String? ?? "unknown")")
+        print("   💾 Bits per component: \(image.bitsPerComponent)")
+        print("   📊 Bits per pixel: \(image.bitsPerPixel)")
+        print("   📏 Bytes per row: \(image.bytesPerRow)")
+        
         updatePerformanceStatus("Saving image...")
         
+        // MARK: - Security Context Logging (First Time Only for Performance)
+        // Use a private static property to track if we've logged the security context
+        if !MenuBarManager.hasLoggedSecurityContext {
+            logAppSecurityContext()
+            MenuBarManager.hasLoggedSecurityContext = true
+        }
+        
         do {
-            print("🔍 [DEBUG] Attempting to get Desktop directory URL...")
+            // MARK: - Desktop Directory Resolution Logging
+            print("🔍 [DEBUG] [\(timestamp)] Starting Desktop directory resolution...")
             var saveURL: URL
             var locationName: String
             
-            // Try Desktop first
+            // Try Desktop first with comprehensive logging
             do {
+                print("🔍 [DEBUG] [\(timestamp)] Attempting FileManager.default.url(for: .desktopDirectory)...")
                 saveURL = try FileManager.default.url(for: .desktopDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
                 locationName = "Desktop"
-                print("🔍 [DEBUG] Desktop URL resolved: \(saveURL.path)")
+                print("✅ [DEBUG] [\(timestamp)] Desktop URL resolution SUCCESS")
+                print("   📁 Desktop path: \(saveURL.path)")
+                print("   📁 Desktop absolute path: \(saveURL.absoluteString)")
+                
+                // Verify Desktop directory exists
+                let desktopExists = FileManager.default.fileExists(atPath: saveURL.path)
+                print("   ✅ Desktop directory exists: \(desktopExists)")
+                
+                if !desktopExists {
+                    print("⚠️ [DEBUG] [\(timestamp)] Desktop directory does not exist, attempting to fall back...")
+                    throw NSError(domain: "DirectoryNotFound", code: 1, userInfo: [NSLocalizedDescriptionKey: "Desktop directory not found"])
+                }
+                
             } catch {
-                print("⚠️ [DEBUG] Desktop not accessible, falling back to Downloads: \(error)")
+                print("⚠️ [DEBUG] [\(timestamp)] Desktop not accessible, error details:")
+                print("   ❌ Error domain: \(error.localizedDescription)")
+                print("   ❌ Error code: \((error as NSError).code)")
+                print("   ❌ Error description: \(error)")
+                print("🔍 [DEBUG] [\(timestamp)] Falling back to Downloads directory...")
+                
                 saveURL = try FileManager.default.url(for: .downloadsDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
                 locationName = "Downloads"
-                print("🔍 [DEBUG] Downloads URL resolved: \(saveURL.path)")
+                print("✅ [DEBUG] [\(timestamp)] Downloads URL resolution SUCCESS")
+                print("   📁 Downloads path: \(saveURL.path)")
+                print("   📁 Downloads absolute path: \(saveURL.absoluteString)")
             }
             
-            let timestamp = DateFormatter().apply {
+            // MARK: - Comprehensive Permission Auditing
+            auditFileSystemPermissions(for: saveURL, directoryName: locationName)
+            
+            // MARK: - File System Permission Verification
+            print("🔍 [DEBUG] [\(timestamp)] Checking file system permissions...")
+            let isWritable = FileManager.default.isWritableFile(atPath: saveURL.path)
+            let isReadable = FileManager.default.isReadableFile(atPath: saveURL.path)
+            let isDeletable = FileManager.default.isDeletableFile(atPath: saveURL.path)
+            
+            print("   🔓 \(locationName) directory writable: \(isWritable)")
+            print("   👁️ \(locationName) directory readable: \(isReadable)")  
+            print("   🗑️ \(locationName) directory deletable: \(isDeletable)")
+            
+            // Check available disk space
+            do {
+                let resourceValues = try saveURL.resourceValues(forKeys: [.volumeAvailableCapacityKey])
+                if let availableCapacity = resourceValues.volumeAvailableCapacity {
+                    let availableMB = availableCapacity / (1024 * 1024)
+                    print("   💾 Available disk space: \(availableMB) MB")
+                }
+            } catch {
+                print("⚠️ [DEBUG] [\(timestamp)] Could not determine available disk space: \(error)")
+            }
+            
+            // MARK: - Filename Generation and Validation
+            let fileTimestamp = DateFormatter().apply {
                 $0.dateFormat = "yyyy-MM-dd-HH-mm-ss"
             }.string(from: Date())
-            let fileURL = saveURL.appendingPathComponent("screenit-\(timestamp).png")
-            print("🔍 [DEBUG] Target file URL: \(fileURL.path)")
+            let filename = "screenit-\(fileTimestamp).png"
+            let fileURL = saveURL.appendingPathComponent(filename)
             
-            // Check if save directory is writable
-            let isWritable = FileManager.default.isWritableFile(atPath: saveURL.path)
-            print("🔍 [DEBUG] \(locationName) directory writable: \(isWritable)")
+            print("🔍 [DEBUG] [\(timestamp)] File path generation:")
+            print("   📅 File timestamp: \(fileTimestamp)")
+            print("   📄 Generated filename: \(filename)")
+            print("   📁 Complete file path: \(fileURL.path)")
+            print("   🌐 File URL: \(fileURL.absoluteString)")
             
-            print("🔍 [DEBUG] Creating CGImageDestination...")
+            // Check if file already exists
+            let fileAlreadyExists = FileManager.default.fileExists(atPath: fileURL.path)
+            print("   ❓ File already exists: \(fileAlreadyExists)")
+            
+            if fileAlreadyExists {
+                print("⚠️ [DEBUG] [\(timestamp)] File already exists - this shouldn't happen with timestamp!")
+            }
+            
+            // MARK: - CGImageDestination Creation and Configuration
+            print("🔍 [DEBUG] [\(timestamp)] Creating CGImageDestination...")
+            print("   🎯 Target URL: \(fileURL)")
+            print("   🏷️ UTI: \(UTType.png.identifier)")
+            print("   📊 Image count: 1")
+            
             guard let destination = CGImageDestinationCreateWithURL(fileURL as CFURL, UTType.png.identifier as CFString, 1, nil) else {
-                print("❌ [DEBUG] Failed to create CGImageDestination for: \(fileURL.path)")
+                print("❌ [DEBUG] [\(timestamp)] CGImageDestination creation FAILED")
+                print("   ❌ Target path: \(fileURL.path)")
+                print("   ❌ UTI identifier: \(UTType.png.identifier)")
+                print("   ❌ Possible causes:")
+                print("      - Invalid file path")
+                print("      - Insufficient permissions")
+                print("      - Disk space full")
+                print("      - Invalid UTI")
+                
                 await handleFileSaveError("Failed to create image destination for file: \(fileURL.lastPathComponent)")
                 return
             }
-            print("✅ [DEBUG] CGImageDestination created successfully")
+            print("✅ [DEBUG] [\(timestamp)] CGImageDestination created successfully")
             
-            print("🔍 [DEBUG] Adding image to destination...")
+            // MARK: - Image Addition to Destination
+            print("🔍 [DEBUG] [\(timestamp)] Adding image to destination...")
+            let imageAddStartTime = Date()
             CGImageDestinationAddImage(destination, image, nil)
-            print("✅ [DEBUG] Image added to destination")
+            let imageAddDuration = Date().timeIntervalSince(imageAddStartTime)
+            print("✅ [DEBUG] [\(timestamp)] Image added to destination (took \(String(format: "%.3f", imageAddDuration)) seconds)")
             
-            print("🔍 [DEBUG] Finalizing image destination...")
-            if CGImageDestinationFinalize(destination) {
-                print("✅ [DEBUG] CGImageDestinationFinalize succeeded")
+            // MARK: - CGImageDestination Finalization
+            print("🔍 [DEBUG] [\(timestamp)] Finalizing image destination...")
+            let finalizeStartTime = Date()
+            let finalizeResult = CGImageDestinationFinalize(destination)
+            let finalizeDuration = Date().timeIntervalSince(finalizeStartTime)
+            
+            if finalizeResult {
+                print("✅ [DEBUG] [\(timestamp)] CGImageDestinationFinalize SUCCESS (took \(String(format: "%.3f", finalizeDuration)) seconds)")
                 
-                // Verify file actually exists on disk
+                // MARK: - Post-Save File System Verification
+                print("🔍 [DEBUG] [\(timestamp)] Performing post-save file system verification...")
+                
+                // Check file existence
                 let fileExists = FileManager.default.fileExists(atPath: fileURL.path)
-                print("🔍 [DEBUG] File exists on disk: \(fileExists)")
+                print("   ✅ File exists on disk: \(fileExists)")
                 
                 if fileExists {
-                    let fileAttributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
-                    let fileSize = fileAttributes?[.size] as? Int64 ?? 0
-                    print("🔍 [DEBUG] File size: \(fileSize) bytes")
+                    // Get detailed file attributes
+                    do {
+                        let fileAttributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+                        let fileSize = fileAttributes[.size] as? Int64 ?? 0
+                        let creationDate = fileAttributes[.creationDate] as? Date
+                        let modificationDate = fileAttributes[.modificationDate] as? Date
+                        let filePermissions = fileAttributes[.posixPermissions] as? NSNumber
+                        
+                        print("   📊 File size: \(fileSize) bytes (\(String(format: "%.2f", Double(fileSize) / 1024.0)) KB)")
+                        print("   📅 Creation date: \(creationDate?.description ?? "unknown")")
+                        print("   📅 Modification date: \(modificationDate?.description ?? "unknown")")
+                        print("   🔐 Permissions: \(filePermissions?.stringValue ?? "unknown")")
+                        
+                        // Validate file size is reasonable (should be > 0 for a real image)
+                        if fileSize > 0 {
+                            print("✅ [DEBUG] [\(timestamp)] File size validation: PASSED (size > 0)")
+                        } else {
+                            print("❌ [DEBUG] [\(timestamp)] File size validation: FAILED (size = 0)")
+                        }
+                        
+                    } catch {
+                        print("⚠️ [DEBUG] [\(timestamp)] Could not get file attributes: \(error)")
+                    }
+                    
+                    // Verify file is readable
+                    let isFileReadable = FileManager.default.isReadableFile(atPath: fileURL.path)
+                    print("   👁️ File is readable: \(isFileReadable)")
+                    
                 } else {
-                    print("❌ [DEBUG] File does not exist despite successful finalize!")
+                    print("❌ [DEBUG] [\(timestamp)] CRITICAL ERROR: File does not exist despite successful finalize!")
+                    print("   🔍 This indicates a potential issue with:")
+                    print("      - File system permissions")
+                    print("      - App sandboxing restrictions")
+                    print("      - Asynchronous file system operations")
+                    print("      - CGImageDestination behavior")
                 }
                 
-                print("✅ [DEBUG] Image saved to: \(fileURL.path)")
+                // MARK: - Function Success Exit
+                let totalDuration = Date().timeIntervalSince(functionStartTime)
+                print("✅ [DEBUG] [\(timestamp)] Image saved successfully")
+                print("   📁 Final location: \(fileURL.path)")
+                print("   ⏱️ Total operation time: \(String(format: "%.3f", totalDuration)) seconds")
+                
                 await handleFileSaveSuccess(fileURL: fileURL, locationName: locationName)
+                
             } else {
-                print("❌ [DEBUG] CGImageDestinationFinalize failed")
+                print("❌ [DEBUG] [\(timestamp)] CGImageDestinationFinalize FAILED")
+                print("   ⏱️ Finalize attempt duration: \(String(format: "%.3f", finalizeDuration)) seconds")
+                print("   🔍 Possible causes:")
+                print("      - Insufficient disk space")
+                print("      - File system permissions")
+                print("      - Corrupted image data")
+                print("      - Invalid destination configuration")
+                print("      - System resource constraints")
+                
                 await handleFileSaveError("Failed to finalize image file at: \(fileURL.lastPathComponent)")
             }
+            
         } catch {
-            print("❌ [DEBUG] Exception in saveImageToDesktop: \(error)")
+            // MARK: - Exception Handling and Logging
+            let totalDuration = Date().timeIntervalSince(functionStartTime)
+            print("❌ [DEBUG] [\(timestamp)] EXCEPTION in saveImageToDesktop")
+            print("   ⏱️ Time before exception: \(String(format: "%.3f", totalDuration)) seconds")
+            print("   ❌ Exception type: \(type(of: error))")
+            print("   ❌ Exception description: \(error.localizedDescription)")
+            print("   ❌ Full error: \(error)")
+            
+            if let nsError = error as NSError? {
+                print("   ❌ Error domain: \(nsError.domain)")
+                print("   ❌ Error code: \(nsError.code)")
+                print("   ❌ Error userInfo: \(nsError.userInfo)")
+            }
+            
             await handleFileSaveError("Failed to access Desktop directory: \(error.localizedDescription)")
         }
         
-        print("🔍 [DEBUG] saveImageToDesktop() completed")
+        // MARK: - Function Exit Logging
+        let finalTimestamp = DateFormatter().apply {
+            $0.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        }.string(from: Date())
+        let totalExecutionTime = Date().timeIntervalSince(functionStartTime)
+        
+        print("🏁 [DEBUG] [\(finalTimestamp)] saveImageToDesktop() EXIT - Function completed")
+        print("   ⏱️ Total execution time: \(String(format: "%.3f", totalExecutionTime)) seconds")
+        print("   📊 Performance status: \(performanceStatus)")
     }
     
     /// Handles successful file save
@@ -751,6 +1134,12 @@ class MenuBarManager: ObservableObject {
             print("Cancelling ongoing capture during cleanup")
             isCapturing = false
         }
+        
+        // Hide overlay if showing
+        overlayManager.hideOverlay()
+        
+        // Unregister global hotkeys
+        hotkeyManager.unregisterAllHotkeys()
         
         // Dismiss menu if showing
         dismissMenu()
