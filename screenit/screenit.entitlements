@@ -16,5 +16,15 @@
     <false/>
     <key>com.apple.security.screen-capture</key>
     <true/>
+    <key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
+    <array>
+        <string>/Users/</string>
+    </array>
+    <key>com.apple.security.temporary-exception.files.home-relative-path.read-write</key>
+    <array>
+        <string>Desktop/</string>
+        <string>Downloads/</string>
+        <string>Pictures/</string>
+    </array>
 </dict>
 </plist>

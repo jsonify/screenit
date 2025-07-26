@@ -32,5 +32,9 @@
     <false/>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
+    <key>NSScreenCaptureDescription</key>
+    <string>screenit needs screen recording access to capture screenshots with pixel-perfect precision, including area selection and annotation tools.</string>
+    <key>NSSystemAdministrationUsageDescription</key>
+    <string>screenit requires system access to register global hotkeys for quick screenshot capture.</string>
 </dict>
 </plist>
