@@ -15,10 +15,16 @@ class CaptureEngine: ObservableObject {
     @Published var isCapturing: Bool = false
     @Published var lastError: CaptureError?
     
+    // MARK: - Enhanced Supporting Classes
+    let performanceTimer = CapturePerformanceTimer()
+    let errorHandler = CaptureErrorHandler()
+    let configurationManager = CaptureConfigurationManager()
+    
     // MARK: - Private Properties
     private let logger = Logger(subsystem: "com.screenit.screenit", category: "CaptureEngine")
     private let scCaptureManager = SCCaptureManager()
     private let permissionManager = ScreenCapturePermissionManager()
+    private var lastCapturedImage: CGImage?
     
     // MARK: - Initialization
     private init() {
@@ -82,9 +88,14 @@ class CaptureEngine: ObservableObject {
     func captureFullScreen() async -> CGImage? {
         logger.info("Starting full screen capture with ScreenCaptureKit")
         
+        // Start performance monitoring
+        performanceTimer.startTimer()
+        
         guard authorizationStatus == "authorized" else {
+            let error = CaptureError.notAuthorized
+            lastError = error
+            errorHandler.logError(error, context: "Full screen capture attempted without authorization")
             logger.error("Screen capture not authorized")
-            lastError = CaptureError.notAuthorized
             return nil
         }
         
@@ -93,6 +104,22 @@ class CaptureEngine: ObservableObject {
         
         defer {
             isCapturing = false
+            
+            // Record performance metrics
+            let duration = performanceTimer.stopTimer()
+            if let image = lastCapturedImage {
+                let imageSize = CGSize(width: image.width, height: image.height)
+                let memoryUsage = configurationManager.estimatedMemoryUsage(for: 
+                    configurationForImageSize(imageSize))
+                
+                performanceTimer.recordCaptureMetrics(
+                    duration: duration,
+                    imageSize: imageSize,
+                    memoryUsage: memoryUsage
+                )
+                
+                logger.info("Capture completed in \(String(format: "%.3f", duration))s, \(imageSize.width)x\(imageSize.height), \(self.formatMemorySize(memoryUsage))")
+            }
         }
         
         // Use SCCaptureManager for real screen capture
@@ -100,12 +127,14 @@ class CaptureEngine: ObservableObject {
         
         if let error = scCaptureManager.captureError {
             lastError = error
+            errorHandler.logError(error, context: "Full screen capture operation")
             logger.error("Screen capture failed: \(error.localizedDescription)")
             return nil
         }
         
         if let image = image {
             logger.info("Screen capture successful: \(image.width)x\(image.height)")
+            lastCapturedImage = image
         }
         
         return image
@@ -115,9 +144,22 @@ class CaptureEngine: ObservableObject {
     func captureArea(_ rect: CGRect) async -> CGImage? {
         logger.info("Starting area capture with ScreenCaptureKit: \(rect.width)x\(rect.height)")
         
+        // Validate capture area
+        guard rect.width > 0 && rect.height > 0 else {
+            let error = CaptureError.invalidCaptureArea
+            lastError = error
+            errorHandler.logError(error, context: "Area capture with invalid dimensions: \(rect)")
+            return nil
+        }
+        
+        // Start performance monitoring
+        performanceTimer.startTimer()
+        
         guard authorizationStatus == "authorized" else {
+            let error = CaptureError.notAuthorized
+            lastError = error
+            errorHandler.logError(error, context: "Area capture attempted without authorization")
             logger.error("Screen capture not authorized")
-            lastError = CaptureError.notAuthorized
             return nil
         }
         
@@ -126,6 +168,22 @@ class CaptureEngine: ObservableObject {
         
         defer {
             isCapturing = false
+            
+            // Record performance metrics
+            let duration = performanceTimer.stopTimer()
+            if let image = lastCapturedImage {
+                let imageSize = CGSize(width: image.width, height: image.height)
+                let memoryUsage = configurationManager.estimatedMemoryUsage(for: 
+                    configurationForImageSize(imageSize))
+                
+                performanceTimer.recordCaptureMetrics(
+                    duration: duration,
+                    imageSize: imageSize,
+                    memoryUsage: memoryUsage
+                )
+                
+                logger.info("Area capture completed in \(String(format: "%.3f", duration))s, \(imageSize.width)x\(imageSize.height), \(self.formatMemorySize(memoryUsage))")
+            }
         }
         
         // Use SCCaptureManager for direct area capture
@@ -133,12 +191,14 @@ class CaptureEngine: ObservableObject {
         
         if let error = scCaptureManager.captureError {
             lastError = error
+            errorHandler.logError(error, context: "Area capture operation for rect: \(rect)")
             logger.error("Area capture failed: \(error.localizedDescription)")
             return nil
         }
         
         if let image = image {
             logger.info("Area capture successful: \(image.width)x\(image.height)")
+            lastCapturedImage = image
         }
         
         return image
@@ -150,6 +210,7 @@ class CaptureEngine: ObservableObject {
     func clearError() {
         lastError = nil
         scCaptureManager.clearError()
+        logger.debug("Cleared capture errors")
     }
     
     /// Gets the primary display bounds from ScreenCaptureKit
@@ -165,6 +226,37 @@ class CaptureEngine: ObservableObject {
     /// Whether capture functionality is available
     var canCapture: Bool {
         return authorizationStatus == "authorized" && scCaptureManager.canCapture
+    }
+    
+    // MARK: - Enhanced Utility Methods
+    
+    /// Creates a configuration for an image size
+    private func configurationForImageSize(_ size: CGSize) -> SCStreamConfiguration {
+        let config = configurationManager.defaultConfiguration()
+        config.width = Int(size.width)
+        config.height = Int(size.height)
+        return config
+    }
+    
+    /// Formats memory size in human-readable format
+    private func formatMemorySize(_ bytes: UInt64) -> String {
+        let mb = Double(bytes) / (1024 * 1024)
+        if mb >= 1.0 {
+            return String(format: "%.1fMB", mb)
+        } else {
+            let kb = Double(bytes) / 1024
+            return String(format: "%.1fKB", kb)
+        }
+    }
+    
+    /// Gets current performance metrics
+    var currentPerformanceMetrics: String {
+        return performanceTimer.performanceReport
+    }
+    
+    /// Gets current error statistics
+    var currentErrorStatistics: String {
+        return errorHandler.errorReport
     }
 }
 

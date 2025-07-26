@@ -1,5 +1,5 @@
 import Foundation
-import ScreenCaptureKit
+@preconcurrency import ScreenCaptureKit
 import OSLog
 
 /// Manages screen capture permissions and user interface for permission requests
