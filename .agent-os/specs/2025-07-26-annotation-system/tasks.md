@@ -14,12 +14,12 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
   - [x] 1.4 Create AnnotationTool protocol and base tool implementations
   - [x] 1.5 Verify all tests pass
 
-- [ ] 2. SwiftUI Canvas Integration
-  - [ ] 2.1 Write tests for Canvas system and drawing operations
-  - [ ] 2.2 Create AnnotationCanvas main drawing surface
-  - [ ] 2.3 Implement multi-canvas overlay system for tool-specific rendering
-  - [ ] 2.4 Add hit testing and gesture recognition for precise interaction
-  - [ ] 2.5 Verify all tests pass
+- [x] 2. SwiftUI Canvas Integration
+  - [x] 2.1 Write tests for Canvas system and drawing operations
+  - [x] 2.2 Create AnnotationCanvas main drawing surface
+  - [x] 2.3 Implement multi-canvas overlay system for tool-specific rendering
+  - [x] 2.4 Add hit testing and gesture recognition for precise interaction
+  - [x] 2.5 Verify all tests pass
 
 - [ ] 3. Arrow Annotation Tool
   - [ ] 3.1 Write tests for Arrow tool functionality
