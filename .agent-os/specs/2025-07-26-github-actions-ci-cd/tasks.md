@@ -25,28 +25,28 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
     - [x] 2.7 Include usage documentation and error messages
     - [x] 2.8 Verify all tests pass
 
-- [ ] 3. Configure GitHub Actions CI/CD Workflow
-    - [ ] 3.1 Write tests for workflow syntax and job dependencies
-    - [ ] 3.2 Create .github/workflows/ci.yml for pull request validation
-    - [ ] 3.3 Add build job with xcodebuild commands for Debug configuration
-    - [ ] 3.4 Add test job with unit test execution and reporting
-    - [ ] 3.5 Configure build status checks for pull requests
-    - [ ] 3.6 Verify all tests pass
+- [x] 3. Configure GitHub Actions CI/CD Workflow
+    - [x] 3.1 Write tests for workflow syntax and job dependencies
+    - [x] 3.2 Create .github/workflows/ci.yml for pull request validation
+    - [x] 3.3 Add build job with swift build commands for Debug configuration
+    - [x] 3.4 Add test job with unit test execution and reporting
+    - [x] 3.5 Configure build status checks for pull requests
+    - [x] 3.6 Verify all tests pass
 
-- [ ] 4. Configure GitHub Actions Release Workflow
-    - [ ] 4.1 Write tests for release workflow validation
-    - [ ] 4.2 Create .github/workflows/release.yml triggered by version tags
-    - [ ] 4.3 Add build and archive job with Release configuration
-    - [ ] 4.4 Configure universal binary support (Intel + Apple Silicon)
-    - [ ] 4.5 Add GitHub release creation with auto-generated notes
-    - [ ] 4.6 Configure artifact upload for distribution
-    - [ ] 4.7 Verify all tests pass
+- [x] 4. Configure GitHub Actions Release Workflow
+    - [x] 4.1 Write tests for release workflow validation
+    - [x] 4.2 Create .github/workflows/release.yml triggered by version tags
+    - [x] 4.3 Add build and archive job with Release configuration
+    - [x] 4.4 Configure universal binary support (Intel + Apple Silicon)
+    - [x] 4.5 Add GitHub release creation with auto-generated notes
+    - [x] 4.6 Configure artifact upload for distribution
+    - [x] 4.7 Verify all tests pass
 
-- [ ] 5. Setup Code Signing and Notarization (Optional)
-    - [ ] 5.1 Write tests for certificate installation and validation
-    - [ ] 5.2 Configure GitHub secrets for Developer ID certificate
-    - [ ] 5.3 Add certificate installation to release workflow
-    - [ ] 5.4 Implement code signing with codesign verification
-    - [ ] 5.5 Add notarization submission and status polling
-    - [ ] 5.6 Configure DMG creation with create-dmg tool
-    - [ ] 5.7 Verify all tests pass
+- [x] 5. Setup Code Signing and Notarization (Optional)
+    - [x] 5.1 Write tests for certificate installation and validation
+    - [x] 5.2 Configure GitHub secrets for Developer ID certificate
+    - [x] 5.3 Add certificate installation to release workflow
+    - [x] 5.4 Implement code signing with codesign verification
+    - [x] 5.5 Add notarization submission and status polling
+    - [x] 5.6 Configure DMG creation with create-dmg tool
+    - [x] 5.7 Verify all tests pass
