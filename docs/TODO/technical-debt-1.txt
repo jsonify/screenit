@@ -1,0 +1,168 @@
+# Technical Debt
+tests/integration/test_integration_complete.sh
+echo " Testing production readiness..."
+# Run all existing test suites
+echo " Running configuration tests..."
+if ! ./test_fastlane_config.sh > /dev/null 2>&1; then
+echo " ❌ Configuration tests failed"
+return 1
+fi
+
+gemini-code-assist
+commented 
+3 minutes ago
+critical
+
+The calls to the individual test suites use incorrect relative paths (e.g., ./test_fastlane_config.sh). Since test-runner.sh executes tests from the project root, the paths must be relative to that root (e.g., tests/fastlane/test_fastlane_config.sh). This error is present for all test suite calls within the test_production_readiness function and will cause the integration tests to fail.
+
+Suggested change
+    if ! ./test_fastlane_config.sh > /dev/null 2>&1; then
+        echo "    ❌ Configuration tests failed"
+        return 1
+    fi
+    if ! tests/fastlane/test_fastlane_config.sh > /dev/null 2>&1; then
+        echo "    ❌ Configuration tests failed"
+        return 1
+    fi
+fastlane/Fastfile
+github_version = sh("gh release list --limit 1 --json tagName --jq '.[0].tagName'", log: false).strip.gsub(/^v/, '')
+puts " GitHub version: #{github_version}"
+if local_version == github_version
+puts "✅ Versions are synchronized"
+else
+puts "⚠️ Version mismatch: local=#{local_version}, github=#{github_version}"
+end
+
+gemini-code-assist
+commented 
+3 minutes ago
+high
+
+In the validate_github_sync lane, if no GitHub releases are found, github_version becomes an empty string, which causes the lane to incorrectly report a version mismatch. It would be more robust to check if github_version is empty and provide a clear message, similar to the logic in the sync_version_with_github lane.
+
+          github_version = sh("gh release list --limit 1 --json tagName --jq '.[0].tagName'", log: false).strip.gsub(/^v/, '')
+
+          if github_version.empty?
+            puts "ℹ️  No GitHub releases found to compare against."
+          else
+            puts "   GitHub version: #{github_version}"
+            if local_version == github_version
+              puts "✅ Versions are synchronized"
+            else
+              puts "⚠️  Version mismatch: local=#{local_version}, github=#{github_version}"
+            end
+          end
+tests/fastlane/test_github_integration.sh
+# Check if version follows semantic versioning (X.Y.Z)
+if ! echo "$version" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' > /dev/null; then
+echo " ❌ Version '$version' is not in semantic format (X.Y.Z)"
+return 1
+fi
+echo " ✅ Semantic version format validated: $version"
+}
+
+gemini-code-assist
+commented 
+3 minutes ago
+high
+
+This test_semantic_version function duplicates logic found in other test scripts (e.g., test_advanced_automation.sh). The test_validate_version function in tests/test-utils.sh is designed for this purpose.
+
+To improve maintainability and reduce code duplication, all test scripts in tests/fastlane/ should consistently source the test-utils.sh file and use its helper functions.
+
+docs/automation/FASTLANE_USAGE.md
+## Error Handling
+### Common Issues
+#### Build Failures
+- **Solution**: Check Xcode configuration and ensure build.sh script works
+- **Debug**: Run `./build.sh` manually to isolate issues
+
+gemini-code-assist
+commented 
+3 minutes ago
+medium
+
+The documentation suggests running ./build.sh to debug build issues, but the script is located at scripts/automation/build.sh. Updating the path will prevent confusion for developers.
+
+Suggested change
+- **Debug**: Run `./build.sh` manually to isolate issues
+- **Debug**: Run `./scripts/automation/build.sh` manually to isolate issues
+fastlane/Appfile
+# Team ID for development (placeholder - developers should set this locally)
+# team_id("YOUR_TEAM_ID")
+# Platform configuration
+for_platform :mac do
+# macOS specific configuration
+app_identifier("com.screenit.screenit")
+end
+
+gemini-code-assist
+commented 
+3 minutes ago
+medium
+
+The app_identifier is already configured at the top level (line 4), and default_platform(:mac) is set in the Fastfile. This for_platform block is therefore redundant and can be removed to simplify the configuration.
+
+fastlane/Fastfile
+end
+puts "ℹ️ App Bundle Information for #{APP_NAME}:"
+puts " Path: #{app_path}"
+# Bundle size
+size_mb = (Dir.glob("#{app_path}/**/*").map { |f| File.size(f) rescue 0 }.sum / 1024.0 / 1024.0).round(2)
+puts " Size: #{size_mb} MB"
+
+gemini-code-assist
+commented 
+3 minutes ago
+medium
+
+Calculating the bundle size by iterating over all files with Dir.glob can be inefficient for large application bundles. Using the du command is significantly more performant and a more standard way to get directory sizes.
+
+    size_mb = sh("du -sm '#{app_path}' | awk '{print $1}'").strip
+    puts "   Size: #{size_mb} MB"
+fastlane/Fastfile
+private_lane :move_build_to_dist do |options|
+suffix = options[:suffix]
+source_app = "../screenit.app"
+dest_app = "../#{DIST_DIR}/#{APP_NAME}-#{suffix}.app"
+if File.exist?(source_app)
+sh("cp -R '#{source_app}' '#{dest_app}'")
+
+gemini-code-assist
+commented 
+3 minutes ago
+medium
+
+The move_build_to_dist lane uses cp -R, which leaves the original build artifact in the project root and requires a separate cleanup step in the clean lane (line 82).
+
+Using mv is more efficient and atomic for this operation. If you make this change, you can also simplify the clean lane by removing the now-unnecessary cleanup of ../screenit.app.
+
+      sh("mv '#{source_app}' '#{dest_app}'")
+scripts/test-runner.sh
+local test_files=(
+"test_fastlane_config.sh"
+"test_build_lanes.sh"
+"test_dev_workflow.sh"
+"test_github_integration.sh"
+"test_release_automation.sh"
+"test_advanced_automation.sh"
+)
+
+gemini-code-assist
+commented 
+3 minutes ago
+medium
+
+The list of test files is hardcoded, which means this script must be updated manually whenever a test file is added or removed. To make this more maintainable, you can dynamically find all test scripts in the directory.
+
+Suggested change
+    local test_files=(
+        "test_fastlane_config.sh"
+        "test_build_lanes.sh"
+        "test_dev_workflow.sh"
+        "test_github_integration.sh"
+        "test_release_automation.sh"
+        "test_advanced_automation.sh"
+    )
+    local test_files
+    readarray -t test_files < <(find "$TESTS_DIR/fastlane" -name 'test_*.sh' -exec basename {} \;)

@@ -41,6 +41,5 @@ fastlane/report.xml
 # Environment
 .env
 .env.local
-
 # My TODOs
 docs/TODO/
