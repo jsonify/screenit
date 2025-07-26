@@ -7,12 +7,12 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
 
 ## Tasks
 
-- [ ] 1. Core Annotation System Foundation
-  - [ ] 1.1 Write tests for AnnotationEngine and core protocols
-  - [ ] 1.2 Create AnnotationEngine with tool registry and state management
-  - [ ] 1.3 Implement core annotation data models (Annotation, AnnotationToolState, AnnotationHistory)
-  - [ ] 1.4 Create AnnotationTool protocol and base tool implementations
-  - [ ] 1.5 Verify all tests pass
+- [x] 1. Core Annotation System Foundation
+  - [x] 1.1 Write tests for AnnotationEngine and core protocols
+  - [x] 1.2 Create AnnotationEngine with tool registry and state management
+  - [x] 1.3 Implement core annotation data models (Annotation, AnnotationToolState, AnnotationHistory)
+  - [x] 1.4 Create AnnotationTool protocol and base tool implementations
+  - [x] 1.5 Verify all tests pass
 
 - [ ] 2. SwiftUI Canvas Integration
   - [ ] 2.1 Write tests for Canvas system and drawing operations
