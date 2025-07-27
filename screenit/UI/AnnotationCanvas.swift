@@ -108,9 +108,35 @@ struct AnnotationCanvas: View {
         guard let geometry = annotation.geometry as? ArrowGeometry,
               let properties = annotation.properties as? ArrowProperties else { return }
         
-        let startPoint = transformToCanvasCoordinates(geometry.startPoint, size: size)
-        let endPoint = transformToCanvasCoordinates(geometry.endPoint, size: size)
+        // Create a transformed annotation with canvas coordinates
+        let transformedGeometry = ArrowGeometry(
+            startPoint: transformToCanvasCoordinates(geometry.startPoint, size: size),
+            endPoint: transformToCanvasCoordinates(geometry.endPoint, size: size)
+        )
         
+        // Scale thickness for canvas
+        let scaledProperties = ArrowProperties(
+            color: properties.color,
+            thickness: properties.thickness * scaleFactor,
+            arrowheadStyle: properties.arrowheadStyle
+        )
+        
+        let transformedAnnotation = Annotation(
+            type: .arrow,
+            properties: scaledProperties,
+            geometry: transformedGeometry
+        )
+        
+        // Use ArrowTool's render method for consistent rendering
+        if let arrowTool = engine.getTool(for: .arrow) as? ArrowTool {
+            arrowTool.render(transformedAnnotation, in: context)
+        } else {
+            // Fallback basic rendering
+            drawBasicArrow(context: context, from: transformedGeometry.startPoint, to: transformedGeometry.endPoint, properties: scaledProperties)
+        }
+    }
+    
+    private func drawBasicArrow(context: GraphicsContext, from startPoint: CGPoint, to endPoint: CGPoint, properties: ArrowProperties) {
         // Draw arrow line
         var path = Path()
         path.move(to: startPoint)
@@ -119,16 +145,16 @@ struct AnnotationCanvas: View {
         context.stroke(
             path,
             with: .color(properties.color),
-            lineWidth: properties.thickness * scaleFactor
+            style: StrokeStyle(
+                lineWidth: properties.thickness,
+                lineCap: .round,
+                lineJoin: .round
+            )
         )
         
-        // Draw arrowhead
-        drawArrowhead(context: context, from: startPoint, to: endPoint, properties: properties)
-    }
-    
-    private func drawArrowhead(context: GraphicsContext, from startPoint: CGPoint, to endPoint: CGPoint, properties: ArrowProperties) {
+        // Draw basic arrowhead
         let angle = atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x)
-        let arrowLength: CGFloat = 15 * scaleFactor
+        let arrowLength: CGFloat = 15
         let arrowAngle: CGFloat = .pi / 6
         
         let arrowPoint1 = CGPoint(
@@ -150,7 +176,11 @@ struct AnnotationCanvas: View {
         context.stroke(
             arrowPath,
             with: .color(properties.color),
-            lineWidth: properties.thickness * scaleFactor
+            style: StrokeStyle(
+                lineWidth: properties.thickness,
+                lineCap: .round,
+                lineJoin: .round
+            )
         )
     }
     
@@ -261,14 +291,53 @@ struct AnnotationCanvas: View {
     }
     
     private func drawPreviewArrow(context: GraphicsContext, from startPoint: CGPoint, to endPoint: CGPoint) {
+        let color = engine.toolState.color.opacity(0.7)
+        let thickness = engine.toolState.thickness * scaleFactor
+        
+        // Draw arrow line
         var path = Path()
         path.move(to: startPoint)
         path.addLine(to: endPoint)
         
         context.stroke(
             path,
-            with: .color(engine.toolState.color.opacity(0.7)),
-            lineWidth: engine.toolState.thickness * scaleFactor
+            with: .color(color),
+            style: StrokeStyle(
+                lineWidth: thickness,
+                lineCap: .round,
+                lineJoin: .round
+            )
+        )
+        
+        // Draw preview arrowhead
+        let angle = atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x)
+        let arrowLength: CGFloat = 15 * scaleFactor
+        let arrowAngle: CGFloat = .pi / 6
+        
+        let arrowPoint1 = CGPoint(
+            x: endPoint.x - arrowLength * cos(angle - arrowAngle),
+            y: endPoint.y - arrowLength * sin(angle - arrowAngle)
+        )
+        
+        let arrowPoint2 = CGPoint(
+            x: endPoint.x - arrowLength * cos(angle + arrowAngle),
+            y: endPoint.y - arrowLength * sin(angle + arrowAngle)
+        )
+        
+        var arrowPath = Path()
+        arrowPath.move(to: endPoint)
+        arrowPath.addLine(to: arrowPoint1)
+        arrowPath.move(to: endPoint)
+        arrowPath.addLine(to: arrowPoint2)
+        
+        context.stroke(
+            arrowPath,
+            with: .color(color),
+            style: StrokeStyle(
+                lineWidth: thickness,
+                lineCap: .round,
+                lineJoin: .round
+            )
         )
     }
     

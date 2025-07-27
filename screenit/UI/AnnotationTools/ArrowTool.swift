@@ -162,4 +162,21 @@ class ArrowTool: BaseAnnotationTool {
         
         return distance(from: point, to: projection)
     }
+    
+    // MARK: - Tool Configuration
+    
+    override func configure(with state: AnnotationToolState) {
+        // Update arrowhead size based on thickness for better visual consistency
+        arrowheadSize = 12.0 + state.thickness * 2
+    }
+    
+    override func activate() {
+        super.activate()
+        // Arrow tool specific activation logic if needed
+    }
+    
+    override func deactivate() {
+        super.deactivate()
+        // Arrow tool specific deactivation logic if needed
+    }
 }

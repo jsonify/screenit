@@ -68,8 +68,8 @@ The following infrastructure has been established:
 - [ ] SwiftUI Canvas Integration - Drawing surface for annotations `M`
 - [ ] Arrow Annotation Tool - Configurable color and thickness `M`
 - [ ] Text Annotation Tool - Font size and color selection `M`
-- [ ] Rectangle Tool - Outline rectangles with style options `S`
-- [ ] Highlight/Blur Tool - Area highlighting and privacy blur `M`
+- [x] Rectangle Tool - Outline rectangles with style options `S`
+- [x] Highlight/Blur Tool - Area highlighting and privacy blur `M`
 - [ ] Annotation Toolbar - Tool selection UI with keyboard shortcuts `S`
 - [ ] Undo/Redo System - Complete annotation history management `M`
 

@@ -10,6 +10,7 @@ class AnnotationEngine: ObservableObject {
     
     @Published var toolState: AnnotationToolState
     @Published var history: AnnotationHistory
+    @Published var undoRedoManager: UndoRedoManager
     @Published private(set) var selectedTool: AnnotationTool?
     @Published private(set) var isAnnotating: Bool = false
     
@@ -25,11 +26,11 @@ class AnnotationEngine: ObservableObject {
     }
     
     var canUndo: Bool {
-        history.canUndo
+        undoRedoManager.canUndo
     }
     
     var canRedo: Bool {
-        history.canRedo
+        undoRedoManager.canRedo
     }
     
     // MARK: - Initialization
@@ -37,6 +38,7 @@ class AnnotationEngine: ObservableObject {
     init() {
         self.toolState = AnnotationToolState()
         self.history = AnnotationHistory()
+        self.undoRedoManager = UndoRedoManager()
         
         // Register all available tools
         registerDefaultTools()
@@ -104,31 +106,53 @@ class AnnotationEngine: ObservableObject {
     // MARK: - Annotation Management
     
     func addAnnotation(_ annotation: Annotation) {
-        history.addAnnotation(annotation)
+        let command = AddAnnotationCommand(annotation: annotation, engine: self)
+        undoRedoManager.execute(command)
     }
     
     func removeAnnotation(_ annotationId: UUID) {
+        guard let annotation = history.annotations.first(where: { $0.id == annotationId }) else { return }
+        let command = RemoveAnnotationCommand(annotation: annotation, engine: self)
+        undoRedoManager.execute(command)
+    }
+    
+    func updateAnnotation(_ annotationId: UUID, with newAnnotation: Annotation) {
+        guard let oldAnnotation = history.annotations.first(where: { $0.id == annotationId }) else { return }
+        let command = ModifyAnnotationCommand(
+            annotationId: annotationId,
+            oldAnnotation: oldAnnotation, 
+            newAnnotation: newAnnotation,
+            engine: self
+        )
+        undoRedoManager.execute(command)
+    }
+    
+    func clearAnnotations() {
+        let command = ClearAllAnnotationsCommand(previousAnnotations: history.annotations, engine: self)
+        undoRedoManager.execute(command)
+    }
+    
+    // Direct manipulation methods for undo/redo system
+    internal func directAddAnnotation(_ annotation: Annotation) {
+        history.addAnnotation(annotation)
+    }
+    
+    internal func directRemoveAnnotation(_ annotationId: UUID) {
         history.removeAnnotation(annotationId)
     }
     
-    func modifyAnnotation(_ annotationId: UUID, newAnnotation: Annotation) {
-        history.modifyAnnotation(annotationId, newAnnotation: newAnnotation)
-    }
-    
-    func clearAllAnnotations() {
+    internal func directClearAnnotations() {
         history.clearAllAnnotations()
     }
     
     // MARK: - Undo/Redo
     
-    @discardableResult
-    func undo() -> Bool {
-        return history.undo()
+    func undo() {
+        undoRedoManager.undo()
     }
     
-    @discardableResult
-    func redo() -> Bool {
-        return history.redo()
+    func redo() {
+        undoRedoManager.redo()
     }
     
     // MARK: - Session Management
