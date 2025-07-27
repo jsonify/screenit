@@ -83,12 +83,19 @@ class MenuBarManager: ObservableObject {
     private let captureEngine = CaptureEngine.shared
     private let overlayManager = CaptureOverlayManager()
     private let hotkeyManager = GlobalHotkeyManager()
+    private let annotationCaptureManager = AnnotationCaptureManager()
     
     init() {
-        setupMenuBar()
-        setupNotifications()
-        setupTerminationHandling()
-        setupGlobalHotkeys()
+        // Defer heavy initialization to prevent circular dependencies during app launch
+        Task { @MainActor in
+            // Small delay to ensure SwiftUI initialization is complete
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+            
+            setupMenuBar()
+            setupNotifications()
+            setupTerminationHandling()
+            setupGlobalHotkeys()
+        }
     }
     
     deinit {
@@ -465,6 +472,76 @@ class MenuBarManager: ObservableObject {
         }
     }
     
+    // MARK: - Annotation Interface Management
+    
+    private var annotationWindow: NSWindow?
+    private var annotationWindowDelegate: AnnotationWindowDelegate?
+    
+    /// Shows the annotation interface for captured image
+    private func showAnnotationInterface() async {
+        print("🎨 [DEBUG] showAnnotationInterface() called")
+        
+        // Create annotation window
+        let annotationView = AnnotationWorkflowView()
+            .environmentObject(annotationCaptureManager)
+        
+        let hostingController = NSHostingController(rootView: annotationView)
+        
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        window.title = "screenit - Annotate"
+        window.contentViewController = hostingController
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        
+        // Store reference to manage lifecycle
+        annotationWindow = window
+        
+        // Set up window delegate to handle annotation completion
+        let delegate = AnnotationWindowDelegate(manager: self)
+        window.delegate = delegate
+        annotationWindowDelegate = delegate // Keep strong reference
+        
+        print("✅ [DEBUG] Annotation window displayed")
+    }
+    
+    /// Handles annotation completion (save or copy)
+    func handleAnnotationCompleted(result: AnnotatedCaptureResult?) {
+        print("🎨 [DEBUG] handleAnnotationCompleted() called")
+        
+        // Close annotation window
+        annotationWindow?.close()
+        annotationWindow = nil
+        annotationWindowDelegate = nil
+        
+        if let result = result {
+            // For now, save the annotated result
+            Task {
+                await saveAnnotatedImageToDesktop(result)
+            }
+        }
+    }
+    
+    /// Handles annotation cancellation
+    func handleAnnotationCancelled() {
+        print("🎨 [DEBUG] handleAnnotationCancelled() called")
+        
+        // Close annotation window
+        annotationWindow?.close()
+        annotationWindow = nil
+        annotationWindowDelegate = nil
+        
+        // Clean up annotation capture manager
+        annotationCaptureManager.cancelAnnotation()
+        
+        updatePerformanceStatus("Annotation cancelled")
+    }
+    
     // MARK: - Menu Actions
     
     func triggerCapture() {
@@ -521,23 +598,21 @@ class MenuBarManager: ObservableObject {
             isCapturing = false
         }
         
-        // Capture the selected area
-        print("🔍 [DEBUG] Calling captureEngine.captureArea()...")
-        if let image = await captureEngine.captureArea(rect) {
-            print("✅ [DEBUG] Area captured successfully: \(image.width)x\(image.height)")
+        // Capture the selected area and start annotation mode
+        print("🔍 [DEBUG] Starting annotation capture workflow...")
+        let success = await annotationCaptureManager.captureAreaAndStartAnnotation(rect)
+        
+        if success {
+            print("✅ [DEBUG] Area captured and annotation mode started")
             
-            // Show success feedback
-            let imageSize = "\(image.width)x\(image.height)"
-            await handleCaptureSuccess(imageSize: imageSize)
-            
-            // Save the image
-            await saveImageToDesktop(image)
+            // Show annotation UI
+            await showAnnotationInterface()
             
             // Update performance status
-            updatePerformanceStatus(captureEngine.currentPerformanceMetrics)
+            updatePerformanceStatus("Ready to annotate")
             
         } else {
-            print("❌ [DEBUG] Area capture failed - captureEngine returned nil")
+            print("❌ [DEBUG] Area capture failed")
             await handleCaptureError()
         }
     }
@@ -1211,6 +1286,65 @@ class MenuBarManager: ObservableObject {
         captureEngine.performanceTimer.resetMetrics()
         captureEngine.errorHandler.resetErrorCounts()
         updatePerformanceStatus("Statistics reset")
+    }
+    
+    /// Saves an annotated image result to Desktop
+    private func saveAnnotatedImageToDesktop(_ result: AnnotatedCaptureResult) async {
+        print("🎨 [DEBUG] saveAnnotatedImageToDesktop() called")
+        
+        updatePerformanceStatus("Rendering annotated image...")
+        
+        do {
+            // Render the annotated image
+            let annotatedImage = try await renderAnnotatedImage(result)
+            
+            // Save using existing save method
+            await saveImageToDesktop(annotatedImage)
+            
+            print("✅ [DEBUG] Annotated image saved successfully")
+            
+        } catch {
+            print("❌ [DEBUG] Failed to render annotated image: \(error)")
+            await handleFileSaveError("Failed to render annotated image: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Renders an annotated image from the result
+    private func renderAnnotatedImage(_ result: AnnotatedCaptureResult) async throws -> CGImage {
+        return try await withCheckedThrowingContinuation { continuation in
+            let renderer = ImageRenderer(content: 
+                AnnotatedImageView(
+                    image: result.originalImage,
+                    annotations: result.annotations,
+                    imageSize: result.imageSize
+                )
+            )
+            
+            renderer.scale = 2.0 // Retina quality
+            
+            DispatchQueue.main.async {
+                if let image = renderer.cgImage {
+                    continuation.resume(returning: image)
+                } else {
+                    continuation.resume(throwing: ExportError.renderingFailed)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Annotation Window Delegate
+
+class AnnotationWindowDelegate: NSObject, NSWindowDelegate {
+    weak var manager: MenuBarManager?
+    
+    init(manager: MenuBarManager) {
+        self.manager = manager
+        super.init()
+    }
+    
+    func windowWillClose(_ notification: Notification) {
+        manager?.handleAnnotationCancelled()
     }
 }
 

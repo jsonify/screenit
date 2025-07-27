@@ -9,10 +9,12 @@ struct CaptureOverlayView: View {
     @State private var startPoint: CGPoint = .zero
     @State private var currentPoint: CGPoint = .zero
     @State private var showCrosshair: Bool = true
+    @State private var showMagnifier: Bool = true
     
     // Callbacks
     private var onSelectionComplete: ((CGRect) -> Void)?
     private var onCancelSelection: (() -> Void)?
+    private var onCursorMoved: ((CGPoint) -> Void)?
     
     var body: some View {
         GeometryReader { geometry in
@@ -55,6 +57,17 @@ struct CaptureOverlayView: View {
             )
             .onHover { isHovering in
                 showCrosshair = isHovering
+                showMagnifier = isHovering && !isSelecting
+            }
+            .onContinuousHover { phase in
+                switch phase {
+                case .active(let location):
+                    currentPoint = location
+                    // Notify parent about cursor movement for magnifier
+                    onCursorMoved?(location)
+                case .ended:
+                    showMagnifier = false
+                }
             }
             .onAppear {
                 setupInitialState(geometry)
@@ -71,10 +84,14 @@ struct CaptureOverlayView: View {
             isSelecting = true
             startPoint = value.startLocation
             showCrosshair = false
+            showMagnifier = false // Hide magnifier during selection
         }
         
         currentPoint = value.location
         updateSelectionRect()
+        
+        // Notify about cursor movement during selection
+        onCursorMoved?(value.location)
     }
     
     private func handleDragEnded(_ value: DragGesture.Value, in geometry: GeometryProxy) {
@@ -136,6 +153,12 @@ struct CaptureOverlayView: View {
     func onCancel(_ callback: @escaping () -> Void) -> CaptureOverlayView {
         var copy = self
         copy.onCancelSelection = callback
+        return copy
+    }
+    
+    func onCursorMove(_ callback: @escaping (CGPoint) -> Void) -> CaptureOverlayView {
+        var copy = self
+        copy.onCursorMoved = callback
         return copy
     }
 }

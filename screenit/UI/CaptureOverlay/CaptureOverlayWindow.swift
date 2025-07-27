@@ -5,6 +5,7 @@ import AppKit
 class CaptureOverlayWindow: NSWindow {
     
     private let overlayView: CaptureOverlayView
+    private var magnifierWindow: MagnifierWindow?
     private var onCaptureComplete: ((CGRect) -> Void)?
     private var onCancelCapture: (() -> Void)?
     
@@ -55,6 +56,9 @@ class CaptureOverlayWindow: NSWindow {
             .onCancel { [weak self] in
                 self?.handleCancelSelection()
             }
+            .onCursorMove { [weak self] position in
+                self?.handleCursorMoved(to: position)
+            }
         
         let hostingController = NSHostingController(rootView: overlayViewWithCallbacks)
         hostingController.view.frame = self.contentView?.bounds ?? self.frame
@@ -76,6 +80,9 @@ class CaptureOverlayWindow: NSWindow {
         self.onCaptureComplete = onComplete
         self.onCancelCapture = onCancel
         
+        // Create and setup magnifier window
+        setupMagnifierWindow()
+        
         // Note: Reset will be handled by the SwiftUI view automatically when it reappears
         
         // Show window
@@ -84,13 +91,17 @@ class CaptureOverlayWindow: NSWindow {
         // Ensure we're at the front
         NSApp.activate(ignoringOtherApps: true)
         
-        print("CaptureOverlayWindow shown for area selection")
+        print("CaptureOverlayWindow shown for area selection with magnifier")
     }
     
     /// Hides the overlay window
     func hideOverlay() {
+        // Hide magnifier window first
+        magnifierWindow?.hideMagnifier()
+        magnifierWindow = nil
+        
         self.orderOut(nil)
-        print("CaptureOverlayWindow hidden")
+        print("CaptureOverlayWindow and magnifier hidden")
     }
     
     // MARK: - Selection Handling
@@ -151,5 +162,22 @@ class CaptureOverlayWindow: NSWindow {
     
     override var canBecomeMain: Bool {
         return true
+    }
+    
+    // MARK: - Magnifier Integration
+    
+    /// Sets up the magnifier window
+    private func setupMagnifierWindow() {
+        magnifierWindow = MagnifierWindow()
+        print("MagnifierWindow created and configured")
+    }
+    
+    /// Handles cursor movement to update magnifier
+    private func handleCursorMoved(to position: CGPoint) {
+        // Convert SwiftUI coordinates to screen coordinates
+        let screenPosition = convertToScreenCoordinates(CGRect(origin: position, size: CGSize(width: 1, height: 1))).origin
+        
+        // Update magnifier window
+        magnifierWindow?.showMagnifier(at: screenPosition)
     }
 }

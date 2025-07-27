@@ -8,7 +8,7 @@ struct screenitApp: App {
     init() {
         // Configure app as background-only (LSUIElement=true in Info.plist)
         // This ensures the app doesn't appear in the Dock or Cmd+Tab switcher
-        setupBackgroundAppConfiguration()
+        // Note: Defer heavy initialization to prevent circular dependencies
     }
     
     var body: some Scene {
@@ -16,6 +16,10 @@ struct screenitApp: App {
         // MenuBarManager handles the actual menu bar integration via NSStatusItem
         Settings {
             EmptyView()
+                .onAppear {
+                    // Initialize background app configuration after SwiftUI is ready
+                    setupBackgroundAppConfiguration()
+                }
         }
         .commands {
             // Remove default menu bar commands since this is a menu bar only app
@@ -33,7 +37,14 @@ struct screenitApp: App {
         // Set activation policy to accessory (background app that can be activated)
         // This is automatically handled by LSUIElement=true in Info.plist
         // but we can verify and adjust if needed
-        DispatchQueue.main.async {
+        
+        // Add safety delay to ensure NSApp is fully ready
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            guard NSApp.activationPolicy() != .prohibited else {
+                print("⚠️ NSApp not ready yet, skipping background configuration")
+                return
+            }
+            
             let currentPolicy = NSApp.activationPolicy()
             
             // For menu bar apps, .accessory is ideal (can show UI but doesn't appear in Dock)
