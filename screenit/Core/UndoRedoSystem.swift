@@ -125,8 +125,8 @@ class UndoRedoManager: ObservableObject {
 // MARK: - Annotation Command Protocol
 
 protocol AnnotationCommand: CustomStringConvertible {
-  func execute() throws
-  func undo() throws
+  @MainActor func execute() throws
+  @MainActor func undo() throws
 }
 
 // MARK: - Concrete Annotation Commands
@@ -141,6 +141,7 @@ struct AddAnnotationCommand: AnnotationCommand {
     self.engine = engine
   }
   
+  @MainActor
   func execute() throws {
     guard let engine = engine else {
       throw AnnotationError.commandExecutionFailed("Engine reference lost")
@@ -148,6 +149,7 @@ struct AddAnnotationCommand: AnnotationCommand {
     engine.directAddAnnotation(annotation)
   }
   
+  @MainActor
   func undo() throws {
     guard let engine = engine else {
       throw AnnotationError.undoFailed("Engine reference lost")
@@ -170,6 +172,7 @@ struct RemoveAnnotationCommand: AnnotationCommand {
     self.engine = engine
   }
   
+  @MainActor
   func execute() throws {
     guard let engine = engine else {
       throw AnnotationError.commandExecutionFailed("Engine reference lost")
@@ -177,6 +180,7 @@ struct RemoveAnnotationCommand: AnnotationCommand {
     engine.directRemoveAnnotation(annotation.id)
   }
   
+  @MainActor
   func undo() throws {
     guard let engine = engine else {
       throw AnnotationError.undoFailed("Engine reference lost")
@@ -203,6 +207,7 @@ struct ModifyAnnotationCommand: AnnotationCommand {
     self.engine = engine
   }
   
+  @MainActor
   func execute() throws {
     guard let engine = engine else {
       throw AnnotationError.commandExecutionFailed("Engine reference lost")
@@ -210,6 +215,7 @@ struct ModifyAnnotationCommand: AnnotationCommand {
     engine.history.modifyAnnotation(annotationId, newAnnotation: newAnnotation)
   }
   
+  @MainActor
   func undo() throws {
     guard let engine = engine else {
       throw AnnotationError.undoFailed("Engine reference lost")
@@ -232,6 +238,7 @@ struct ClearAllAnnotationsCommand: AnnotationCommand {
     self.engine = engine
   }
   
+  @MainActor
   func execute() throws {
     guard let engine = engine else {
       throw AnnotationError.commandExecutionFailed("Engine reference lost")
@@ -239,6 +246,7 @@ struct ClearAllAnnotationsCommand: AnnotationCommand {
     engine.directClearAnnotations()
   }
   
+  @MainActor
   func undo() throws {
     guard let engine = engine else {
       throw AnnotationError.undoFailed("Engine reference lost")

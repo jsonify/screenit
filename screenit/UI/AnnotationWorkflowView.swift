@@ -2,11 +2,11 @@ import SwiftUI
 
 // MARK: - Complete Capture with Annotation Workflow View
 
-struct CaptureWithAnnotationView: View {
+struct AnnotationWorkflowView: View {
   
   // MARK: - State Management
   
-  @StateObject private var captureManager = AnnotationCaptureManager()
+  @EnvironmentObject var captureManager: AnnotationCaptureManager
   @State private var selectedTool: AnnotationType = .arrow
   @State private var selectedColor: Color = .red
   @State private var showExportOptions = false
@@ -16,11 +16,8 @@ struct CaptureWithAnnotationView: View {
   
   var body: some View {
     VStack(spacing: 0) {
-      if captureManager.isInAnnotationMode {
-        annotationModeView
-      } else {
-        captureSelectionView
-      }
+      // Always show annotation mode when view is displayed from MenuBarManager
+      annotationModeView
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color.black.opacity(0.1))
@@ -117,7 +114,7 @@ struct CaptureWithAnnotationView: View {
       selectedTool: $selectedTool,
       selectedColor: $selectedColor,
       onToolChange: { tool in
-        captureManager.annotationEngine.selectTool(for: tool)
+        captureManager.annotationEngine.selectTool(tool)
       },
       onColorChange: { color in
         captureManager.annotationEngine.toolState.color = color
@@ -134,7 +131,7 @@ struct CaptureWithAnnotationView: View {
         selectedTool: $selectedTool,
         selectedColor: $selectedColor,
         onToolChange: { tool in
-          captureManager.annotationEngine.selectTool(for: tool)
+          captureManager.annotationEngine.selectTool(tool)
         },
         onColorChange: { color in
           captureManager.annotationEngine.toolState.color = color
@@ -146,7 +143,7 @@ struct CaptureWithAnnotationView: View {
       // Undo/Redo controls
       HStack {
         Button(action: {
-          captureManager.annotationEngine.undo()
+          _ = captureManager.annotationEngine.undo()
         }) {
           Image(systemName: "arrow.uturn.backward")
         }
@@ -154,7 +151,7 @@ struct CaptureWithAnnotationView: View {
         .keyboardShortcut("z", modifiers: .command)
         
         Button(action: {
-          captureManager.annotationEngine.redo()
+          _ = captureManager.annotationEngine.redo()
         }) {
           Image(systemName: "arrow.uturn.forward")
         }
@@ -284,6 +281,7 @@ struct CaptureWithAnnotationView: View {
 // MARK: - Preview
 
 #Preview {
-  CaptureWithAnnotationView()
+  AnnotationWorkflowView()
+    .environmentObject(AnnotationCaptureManager())
     .frame(width: 1200, height: 800)
 }

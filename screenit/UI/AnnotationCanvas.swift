@@ -49,35 +49,68 @@ struct AnnotationCanvas: View {
     // MARK: - Body
     
     var body: some View {
-        Canvas { context, size in
-            // Update canvas size
-            DispatchQueue.main.async {
-                if canvasSize != size {
-                    canvasSize = size
+        ZStack {
+            Canvas { context, size in
+                // Update canvas size
+                DispatchQueue.main.async {
+                    if canvasSize != size {
+                        canvasSize = size
+                    }
+                }
+                
+                // Draw existing annotations
+                drawAnnotations(context: context, size: size)
+                
+                // Draw current drawing in progress
+                if let drawing = currentDrawing {
+                    drawCurrentAnnotation(context: context, drawing: drawing, size: size)
                 }
             }
-            
-            // Draw existing annotations
-            drawAnnotations(context: context, size: size)
-            
-            // Draw current drawing in progress
-            if let drawing = currentDrawing {
-                drawCurrentAnnotation(context: context, drawing: drawing, size: size)
+            .background(Color.clear)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        handleDragChanged(value)
+                    }
+                    .onEnded { value in
+                        handleDragEnded(value)
+                    }
+            )
+            .onTapGesture { location in
+                handleTap(at: location)
             }
-        }
-        .background(Color.clear)
-        .contentShape(Rectangle())
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { value in
-                    handleDragChanged(value)
-                }
-                .onEnded { value in
-                    handleDragEnded(value)
-                }
-        )
-        .onTapGesture { location in
-            handleTap(at: location)
+            
+            // Text input overlay
+            if let textTool = engine.selectedTool as? TextTool,
+               textTool.textInputState.isEditing {
+                TextInputView(
+                    text: Binding(
+                        get: { textTool.textInputState.text },
+                        set: { textTool.updateTextInput($0) }
+                    ),
+                    isEditing: Binding(
+                        get: { textTool.textInputState.isEditing },
+                        set: { _ in }
+                    ),
+                    position: transformToCanvasCoordinates(
+                        textTool.textInputState.position,
+                        size: canvasSize
+                    ),
+                    fontSize: textTool.textInputState.configuration.fontSize * scaleFactor,
+                    fontWeight: textTool.textInputState.configuration.fontWeight,
+                    color: textTool.textInputState.configuration.color,
+                    backgroundColor: textTool.textInputState.configuration.backgroundColor,
+                    onComplete: { text in
+                        if let annotation = textTool.finishTextEditing() {
+                            engine.addAnnotation(annotation)
+                        }
+                    },
+                    onCancel: {
+                        textTool.cancelTextEditing()
+                    }
+                )
+            }
         }
     }
     
@@ -450,10 +483,12 @@ struct AnnotationCanvas: View {
     
     private func handleTap(at location: CGPoint) {
         if engine.selectedTool?.type == .text {
-            handleDrawStart(at: location)
-            handleDrawEnd(at: location)
+            // For text tool, we start text editing at the tap location
+            let imagePoint = transformToImageCoordinates(location)
+            engine.handleCanvasEvent(.drawStart(imagePoint))
         }
     }
+    
     
     // MARK: - Drawing Event Handling
     

@@ -147,12 +147,14 @@ class AnnotationEngine: ObservableObject {
     
     // MARK: - Undo/Redo
     
-    func undo() {
+    func undo() -> Bool {
         undoRedoManager.undo()
+        return true
     }
     
-    func redo() {
+    func redo() -> Bool {
         undoRedoManager.redo()
+        return true
     }
     
     // MARK: - Session Management
@@ -201,7 +203,7 @@ class AnnotationEngine: ObservableObject {
     
     private func setupToolStateObservation() {
         // Update selected tool when tool state changes
-        toolState.objectWillChange.sink { [weak self] in
+        _ = toolState.objectWillChange.sink { [weak self] in
             DispatchQueue.main.async {
                 self?.selectedTool?.configure(with: self?.toolState ?? AnnotationToolState())
             }

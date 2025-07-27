@@ -21,19 +21,19 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
   - [x] 2.4 Add hit testing and gesture recognition for precise interaction
   - [x] 2.5 Verify all tests pass
 
-- [ ] 3. Arrow Annotation Tool
-  - [ ] 3.1 Write tests for Arrow tool functionality
-  - [ ] 3.2 Implement ArrowTool with interactive start/end point drawing
-  - [ ] 3.3 Add configurable color, thickness, and arrowhead styles
-  - [ ] 3.4 Integrate arrow tool with canvas system
-  - [ ] 3.5 Verify all tests pass
+- [x] 3. Arrow Annotation Tool
+  - [x] 3.1 Write tests for Arrow tool functionality
+  - [x] 3.2 Implement ArrowTool with interactive start/end point drawing
+  - [x] 3.3 Add configurable color, thickness, and arrowhead styles
+  - [x] 3.4 Integrate arrow tool with canvas system
+  - [x] 3.5 Verify all tests pass
 
-- [ ] 4. Text Annotation Tool
-  - [ ] 4.1 Write tests for Text tool functionality
-  - [ ] 4.2 Implement TextTool with click-to-place text input
-  - [ ] 4.3 Add inline editing with font size and color customization
-  - [ ] 4.4 Handle text background and positioning options
-  - [ ] 4.5 Verify all tests pass
+- [x] 4. Text Annotation Tool
+  - [x] 4.1 Write tests for Text tool functionality
+  - [x] 4.2 Implement TextTool with click-to-place text input
+  - [x] 4.3 Add inline editing with font size and color customization
+  - [x] 4.4 Handle text background and positioning options
+  - [x] 4.5 Verify all tests pass
 
 - [x] 5. Rectangle and Effect Tools
   - [x] 5.1 Write tests for Rectangle, Highlight, and Blur tools

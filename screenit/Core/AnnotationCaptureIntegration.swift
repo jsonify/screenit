@@ -9,8 +9,8 @@ class AnnotationCaptureManager: ObservableObject {
   
   // MARK: - Dependencies
   
-  private let captureEngine: CaptureEngine
-  private let annotationEngine: AnnotationEngine
+  let captureEngine: CaptureEngine
+  let annotationEngine: AnnotationEngine
   
   // MARK: - Published Properties
   
