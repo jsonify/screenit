@@ -45,7 +45,7 @@ class AnnotationCaptureManager: ObservableObject {
     return await startAnnotationSession(with: image)
   }
   
-  private func startAnnotationSession(with image: CGImage) async -> Bool {
+  func startAnnotationSession(with image: CGImage) async -> Bool {
     capturedImage = image
     imageSize = CGSize(width: image.width, height: image.height)
     

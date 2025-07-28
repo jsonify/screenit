@@ -85,6 +85,7 @@ class MenuBarManager: ObservableObject {
     private let hotkeyManager = GlobalHotkeyManager()
     private let annotationCaptureManager = AnnotationCaptureManager()
     private let dataManager = DataManager.shared
+    private let postCapturePreviewManager = PostCapturePreviewManager()
     
     init() {
         // Defer heavy initialization to prevent circular dependencies during app launch
@@ -501,6 +502,7 @@ class MenuBarManager: ObservableObject {
     private var annotationWindow: NSWindow?
     private var annotationWindowDelegate: AnnotationWindowDelegate?
     private var historyWindow: NSWindow?
+    private var isClosingAnnotationWindow = false
     
     /// Shows the annotation interface for captured image
     private func showAnnotationInterface() async {
@@ -521,6 +523,11 @@ class MenuBarManager: ObservableObject {
         
         window.title = "screenit - Annotate"
         window.contentViewController = hostingController
+        
+        // Ensure annotation window appears in front of all other windows
+        window.level = .floating
+        window.collectionBehavior = [.canJoinAllSpaces]
+        
         window.center()
         window.makeKeyAndOrderFront(nil)
         
@@ -539,10 +546,26 @@ class MenuBarManager: ObservableObject {
     func handleAnnotationCompleted(result: AnnotatedCaptureResult?) {
         print("🎨 [DEBUG] handleAnnotationCompleted() called")
         
-        // Close annotation window
-        annotationWindow?.close()
+        // Prevent infinite recursion during window close
+        guard !isClosingAnnotationWindow else {
+            print("🎨 [DEBUG] Already closing annotation window, skipping")
+            return
+        }
+        
+        isClosingAnnotationWindow = true
+        
+        // Safely disconnect delegate and close window
+        if let window = annotationWindow {
+            window.delegate = nil
+            window.close()
+        }
+        
+        // Clear references
         annotationWindow = nil
         annotationWindowDelegate = nil
+        
+        // Reset flag
+        isClosingAnnotationWindow = false
         
         if let result = result {
             Task {
@@ -552,19 +575,54 @@ class MenuBarManager: ObservableObject {
         }
     }
     
-    /// Handles annotation cancellation
+    /// Handles annotation cancellation (called programmatically)
     func handleAnnotationCancelled() {
         print("🎨 [DEBUG] handleAnnotationCancelled() called")
         
-        // Close annotation window
-        annotationWindow?.close()
+        // Prevent infinite recursion during window close
+        guard !isClosingAnnotationWindow else {
+            print("🎨 [DEBUG] Already closing annotation window, skipping")
+            return
+        }
+        
+        isClosingAnnotationWindow = true
+        
+        // Safely disconnect delegate and close window
+        if let window = annotationWindow {
+            window.delegate = nil
+            window.close()
+        }
+        
+        // Clear references
         annotationWindow = nil
         annotationWindowDelegate = nil
         
         // Clean up annotation capture manager
         annotationCaptureManager.cancelAnnotation()
         
+        // Reset flag
+        isClosingAnnotationWindow = false
+        
         updatePerformanceStatus("Annotation cancelled")
+    }
+    
+    /// Handles annotation cancellation from window delegate (user clicked close button)
+    func handleAnnotationCancelledFromDelegate() {
+        print("🎨 [DEBUG] handleAnnotationCancelledFromDelegate() called - doing immediate cleanup")
+        
+        // Do cleanup immediately without accessing potentially corrupted properties
+        // The window is already closing, so we just need to clean up our state
+        print("🎨 [DEBUG] Cleaning up annotation state without property access")
+        
+        // Cancel annotation through manager if available
+        annotationCaptureManager.cancelAnnotation()
+        
+        // Update status safely
+        DispatchQueue.main.async { [weak self] in
+            self?.updatePerformanceStatus("Annotation cancelled")
+        }
+        
+        print("🎨 [DEBUG] Delegate cleanup completed")
     }
     
     // MARK: - Menu Actions
@@ -623,21 +681,54 @@ class MenuBarManager: ObservableObject {
             isCapturing = false
         }
         
-        // Capture the selected area and start annotation mode
-        print("🔍 [DEBUG] Starting annotation capture workflow...")
-        let success = await annotationCaptureManager.captureAreaAndStartAnnotation(rect)
+        // Capture the selected area (without starting annotation yet)
+        print("🔍 [DEBUG] Capturing area...")
+        guard let capturedImage = await captureEngine.captureArea(rect) else {
+            print("❌ [DEBUG] Area capture failed")
+            await handleCaptureError()
+            return
+        }
+        
+        print("✅ [DEBUG] Area captured successfully")
+        updatePerformanceStatus("Capture complete")
+        
+        // Show preview window with captured image
+        print("📱 [DEBUG] Showing post-capture preview...")
+        postCapturePreviewManager.showPreview(
+            image: capturedImage,
+            onAnnotate: { [weak self] in
+                Task { @MainActor in
+                    print("🎨 [DEBUG] User chose to annotate from preview")
+                    await self?.startAnnotationWorkflow(with: capturedImage, rect: rect)
+                }
+            },
+            onDismiss: { [weak self] in
+                Task { @MainActor in
+                    print("📱 [DEBUG] User dismissed preview - saving directly")
+                    await self?.saveImageToDesktop(capturedImage)
+                }
+            }
+        )
+        
+        updatePerformanceStatus("Preview shown - choose action")
+    }
+    
+    /// Starts the annotation workflow with a captured image
+    private func startAnnotationWorkflow(with image: CGImage, rect: CGRect) async {
+        print("🎨 [DEBUG] startAnnotationWorkflow() called")
+        
+        // Start annotation session with the captured image
+        let success = await annotationCaptureManager.startAnnotationSession(with: image)
         
         if success {
-            print("✅ [DEBUG] Area captured and annotation mode started")
+            print("✅ [DEBUG] Annotation session started")
             
-            // Show annotation UI
+            // Show annotation UI with proper window level
             await showAnnotationInterface()
             
-            // Update performance status
             updatePerformanceStatus("Ready to annotate")
-            
         } else {
-            print("❌ [DEBUG] Area capture failed")
+            print("❌ [DEBUG] Failed to start annotation session")
             await handleCaptureError()
         }
     }
@@ -1280,6 +1371,9 @@ class MenuBarManager: ObservableObject {
         // Hide overlay if showing
         overlayManager.hideOverlay()
         
+        // Hide preview if showing
+        postCapturePreviewManager.hidePreview()
+        
         // Unregister global hotkeys
         hotkeyManager.unregisterAllHotkeys()
         
@@ -1431,6 +1525,7 @@ class MenuBarManager: ObservableObject {
 
 class AnnotationWindowDelegate: NSObject, NSWindowDelegate {
     weak var manager: MenuBarManager?
+    private var isHandlingClose = false
     
     init(manager: MenuBarManager) {
         self.manager = manager
@@ -1438,7 +1533,13 @@ class AnnotationWindowDelegate: NSObject, NSWindowDelegate {
     }
     
     func windowWillClose(_ notification: Notification) {
-        manager?.handleAnnotationCancelled()
+        // Prevent multiple calls during the same close operation
+        guard !isHandlingClose else { return }
+        isHandlingClose = true
+        
+        // Safely handle cancellation with nil check
+        guard let manager = manager else { return }
+        manager.handleAnnotationCancelledFromDelegate()
     }
 }
 

@@ -121,6 +121,29 @@ The foundation is now in place for:
 - **Image Generation**: Creates test images that demonstrate the save workflow
 - **Architecture**: Full CaptureEngine structure ready for ScreenCaptureKit integration
 
+## Troubleshooting
+
+### ScreenCaptureKit Issues
+
+**Problem**: "Stream failed to start" or capture fails
+**Solution**: CleanShot X and other screen capture apps can conflict with ScreenCaptureKit. 
+
+1. **Quit CleanShot X** completely (not just minimize)
+2. **Quit other screen capture tools** (OBS, QuickTime Screen Recording, etc.)
+3. **Restart screenit**
+4. **Test capture again**
+
+**Technical Details**: ScreenCaptureKit can only have one active capture stream per system. Running multiple screen capture applications simultaneously causes stream conflicts.
+
+### Permission Issues
+
+**Problem**: "Screen recording permission required"
+**Solution**: Grant screen recording permission in System Settings:
+
+1. **System Settings** → **Privacy & Security** → **Screen & System Audio Recording**
+2. **Add screenit** and enable it
+3. **Restart the app**
+
 ## Architecture
 
 - **SwiftUI MenuBarExtra**: Modern macOS menu bar integration

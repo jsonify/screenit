@@ -175,16 +175,16 @@ class CaptureErrorHandler: ObservableObject {
         
         switch severity {
         case .critical:
-            logger.critical("Critical capture error: \(error.localizedDescription ?? "Unknown error")\(contextInfo)")
+            logger.critical("Critical capture error: \(error.localizedDescription)\(contextInfo)")
             
         case .high:
-            logger.error("High-severity capture error: \(error.localizedDescription ?? "Unknown error")\(contextInfo)")
+            logger.error("High-severity capture error: \(error.localizedDescription)\(contextInfo)")
             
         case .medium:
-            logger.warning("Medium-severity capture error: \(error.localizedDescription ?? "Unknown error")\(contextInfo)")
+            logger.warning("Medium-severity capture error: \(error.localizedDescription)\(contextInfo)")
             
         case .low:
-            logger.info("Low-severity capture error: \(error.localizedDescription ?? "Unknown error")\(contextInfo)")
+            logger.info("Low-severity capture error: \(error.localizedDescription)\(contextInfo)")
         }
         
         // Record error for statistics
