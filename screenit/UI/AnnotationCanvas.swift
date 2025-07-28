@@ -11,6 +11,7 @@ struct AnnotationCanvas: View {
     
     @State private var currentDrawing: CurrentDrawing?
     @State private var canvasSize: CGSize = .zero
+    @State private var isInitialized: Bool = false
     
     // MARK: - Computed Properties
     
@@ -52,11 +53,17 @@ struct AnnotationCanvas: View {
         ZStack {
             Canvas { context, size in
                 // Update canvas size
-                DispatchQueue.main.async {
-                    if canvasSize != size {
+                if canvasSize != size {
+                    DispatchQueue.main.async {
                         canvasSize = size
+                        if !isInitialized {
+                            isInitialized = true
+                        }
                     }
                 }
+                
+                // Only draw when properly initialized to avoid shader recompilation
+                guard isInitialized else { return }
                 
                 // Draw existing annotations
                 drawAnnotations(context: context, size: size)
@@ -66,6 +73,7 @@ struct AnnotationCanvas: View {
                     drawCurrentAnnotation(context: context, drawing: drawing, size: size)
                 }
             }
+            .drawingGroup() // Force Metal rendering optimization
             .background(Color.clear)
             .contentShape(Rectangle())
             .gesture(

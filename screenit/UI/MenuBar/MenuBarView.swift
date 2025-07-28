@@ -75,12 +75,20 @@ struct MenuBarView: View {
                 }
                 .padding(.top, 4)
             } else if !menuBarManager.canCapture {
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
-                    Text("Permission required")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text("Permission required")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Button("Refresh Permissions") {
+                        menuBarManager.refreshPermissions()
+                    }
+                    .font(.caption)
+                    .foregroundColor(.accentColor)
                 }
                 .padding(.top, 4)
             }

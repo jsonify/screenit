@@ -13,6 +13,9 @@ class ScreenCapturePermissionManager: ObservableObject {
     
     // MARK: - Private Properties
     private let logger = Logger(subsystem: "com.screenit.screenit", category: "PermissionManager")
+    private var lastPermissionCheck: Date = .distantPast
+    private let permissionCheckCooldown: TimeInterval = 2.0 // 2 seconds between checks
+    private let devHelper = DevelopmentPermissionHelper()
     
     // MARK: - Permission Status Enum
     enum PermissionStatus {
@@ -50,10 +53,18 @@ class ScreenCapturePermissionManager: ObservableObject {
     
     /// Checks the current permission status without requesting
     func checkPermissionStatus() async {
+        // Implement cooldown to prevent rapid-fire permission checks
+        let now = Date()
+        if now.timeIntervalSince(lastPermissionCheck) < permissionCheckCooldown {
+            logger.debug("Permission check skipped due to cooldown")
+            return
+        }
+        lastPermissionCheck = now
+        
         logger.info("Checking screen capture permission status")
         
+        // Try to get content to check actual capability (this is the primary method for checking permissions)
         do {
-            // Try to get shareable content - this will tell us permission status
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
             
             // If we get here, permission is granted
@@ -62,30 +73,33 @@ class ScreenCapturePermissionManager: ObservableObject {
             logger.info("Screen capture permission is granted - found \(content.displays.count) displays")
             
         } catch let error as NSError {
-            // Parse the error to determine status
-            if error.domain == "com.apple.screencapturekit" {
-                if error.localizedDescription.contains("declined") {
-                    permissionStatus = .denied
-                    permissionError = "Screen recording permission was denied. Please grant permission in System Preferences > Privacy & Security > Screen Recording."
-                } else if error.localizedDescription.contains("restricted") {
-                    permissionStatus = .restricted
-                    permissionError = "Screen recording is restricted by system policy."
-                } else {
-                    permissionStatus = .notDetermined
-                    permissionError = "Screen recording permission status unknown."
-                }
-            } else {
-                permissionStatus = .notDetermined
-                permissionError = "Unable to determine screen recording permission: \(error.localizedDescription)"
-            }
-            
             logger.error("Screen capture permission check failed: \(error.localizedDescription)")
+            permissionStatus = .notDetermined
+            permissionError = "Unable to determine screen recording permission: \(error.localizedDescription)"
         }
     }
     
     /// Requests screen capture permission from the user
     func requestPermission() async -> Bool {
         logger.info("Requesting screen capture permission")
+        
+        // Check if we should skip the dialog in development
+        if devHelper.shouldSkipPermissionDialog() {
+            // Do a non-intrusive check first
+            await checkPermissionStatus()
+            if permissionStatus == .granted {
+                logger.info("Permission already granted and acknowledged, skipping dialog")
+                return true
+            }
+        }
+        
+        // First check if we already have permission to avoid duplicate dialogs
+        await checkPermissionStatus()
+        if permissionStatus == .granted {
+            logger.info("Permission already granted, no need to request")
+            devHelper.markPermissionAcknowledged()
+            return true
+        }
         
         isRequestingPermission = true
         permissionError = nil
@@ -95,12 +109,13 @@ class ScreenCapturePermissionManager: ObservableObject {
         }
         
         do {
-            // Attempting to get shareable content will trigger the permission dialog
+            // Attempting to get shareable content will trigger the permission dialog if needed
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
             
             // If we get here, permission was granted
             permissionStatus = .granted
             permissionError = nil
+            devHelper.markPermissionAcknowledged()
             
             logger.info("Screen capture permission granted - found \(content.displays.count) displays")
             return true
@@ -141,6 +156,13 @@ class ScreenCapturePermissionManager: ObservableObject {
     /// Refreshes permission status (useful after user changes system settings)
     func refreshPermissionStatus() async {
         logger.info("Refreshing permission status")
+        await checkPermissionStatus()
+    }
+    
+    /// Forces a permission check bypassing cooldown (use sparingly)
+    func forcePermissionCheck() async {
+        logger.info("Forcing permission status check (bypassing cooldown)")
+        lastPermissionCheck = .distantPast // Reset cooldown
         await checkPermissionStatus()
     }
     

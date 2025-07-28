@@ -84,6 +84,7 @@ class MenuBarManager: ObservableObject {
     private let overlayManager = CaptureOverlayManager()
     private let hotkeyManager = GlobalHotkeyManager()
     private let annotationCaptureManager = AnnotationCaptureManager()
+    private let dataManager = DataManager.shared
     
     init() {
         // Defer heavy initialization to prevent circular dependencies during app launch
@@ -357,8 +358,31 @@ class MenuBarManager: ObservableObject {
     }
     
     private func setupNotifications() {
-        // Future: Set up additional notification monitoring
-        // Global hotkeys are now handled by setupGlobalHotkeys()
+        // Monitor app activation to refresh permissions
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                // Refresh permission status when app becomes active
+                await self?.permissionManager.refreshPermissionStatus()
+                self?.objectWillChange.send()
+            }
+        }
+        
+        // Monitor system wake to refresh permissions
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                // Refresh permission status after system wake
+                await self?.permissionManager.refreshPermissionStatus() 
+                self?.objectWillChange.send()
+            }
+        }
     }
     
     // MARK: - Global Hotkey Setup
@@ -472,10 +496,11 @@ class MenuBarManager: ObservableObject {
         }
     }
     
-    // MARK: - Annotation Interface Management
+    // MARK: - Window Management
     
     private var annotationWindow: NSWindow?
     private var annotationWindowDelegate: AnnotationWindowDelegate?
+    private var historyWindow: NSWindow?
     
     /// Shows the annotation interface for captured image
     private func showAnnotationInterface() async {
@@ -520,9 +545,9 @@ class MenuBarManager: ObservableObject {
         annotationWindowDelegate = nil
         
         if let result = result {
-            // For now, save the annotated result
             Task {
-                await saveAnnotatedImageToDesktop(result)
+                // Save to both history and Desktop
+                await saveAnnotatedImageWithHistory(result)
             }
         }
     }
@@ -689,6 +714,14 @@ class MenuBarManager: ObservableObject {
     func openSystemPreferences() {
         permissionManager.openSystemPreferences()
         showingPermissionAlert = false
+    }
+    
+    /// Manually refreshes permission status
+    func refreshPermissions() {
+        Task { @MainActor in
+            await permissionManager.refreshPermissionStatus()
+            objectWillChange.send()
+        }
     }
     
     /// Dismisses the permission alert
@@ -1144,7 +1177,41 @@ class MenuBarManager: ObservableObject {
     
     func showHistory() {
         print("Show History triggered")
-        // TODO: Implement history view in Phase 4
+        
+        // Close existing history window if open
+        if let existingWindow = historyWindow {
+            existingWindow.orderFront(nil)
+            return
+        }
+        
+        // Create history view with proper Core Data context
+        let historyView = HistoryGridView()
+            .environment(\.managedObjectContext, PersistenceManager.shared.viewContext)
+        
+        let hostingController = NSHostingController(rootView: historyView)
+        
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        window.title = "Screenshot History"
+        window.contentViewController = hostingController
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        
+        // Store reference to manage lifecycle
+        historyWindow = window
+        
+        // Set up window delegate to handle window close
+        let delegate = HistoryWindowDelegate { [weak self] in
+            self?.historyWindow = nil
+        }
+        window.delegate = delegate
+        
+        print("✅ History window displayed")
     }
     
     func showPreferences() {
@@ -1288,6 +1355,33 @@ class MenuBarManager: ObservableObject {
         updatePerformanceStatus("Statistics reset")
     }
     
+    /// Saves an annotated image with history tracking and Desktop export
+    private func saveAnnotatedImageWithHistory(_ result: AnnotatedCaptureResult) async {
+        print("🎨 [DEBUG] saveAnnotatedImageWithHistory() called")
+        
+        updatePerformanceStatus("Saving capture to history...")
+        
+        // Convert result to NSImage for DataManager
+        let nsImage = NSImage(cgImage: result.originalImage, size: result.imageSize)
+        
+        // Save to history with annotations
+        dataManager.saveCaptureWithAnnotations(nsImage, annotations: result.annotations) { [weak self] saveResult in
+            Task { @MainActor in
+                switch saveResult {
+                case .success(let captureItem):
+                    print("✅ [DEBUG] Saved to history successfully: \(captureItem.id?.uuidString ?? "unknown")")
+                    
+                    // Also save to Desktop for immediate access
+                    await self?.saveAnnotatedImageToDesktop(result)
+                    
+                case .failure(let error):
+                    print("❌ [DEBUG] Failed to save to history: \(error)")
+                    await self?.handleFileSaveError("Failed to save to history: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
     /// Saves an annotated image result to Desktop
     private func saveAnnotatedImageToDesktop(_ result: AnnotatedCaptureResult) async {
         print("🎨 [DEBUG] saveAnnotatedImageToDesktop() called")
@@ -1333,7 +1427,7 @@ class MenuBarManager: ObservableObject {
     }
 }
 
-// MARK: - Annotation Window Delegate
+// MARK: - Window Delegates
 
 class AnnotationWindowDelegate: NSObject, NSWindowDelegate {
     weak var manager: MenuBarManager?
@@ -1345,6 +1439,19 @@ class AnnotationWindowDelegate: NSObject, NSWindowDelegate {
     
     func windowWillClose(_ notification: Notification) {
         manager?.handleAnnotationCancelled()
+    }
+}
+
+class HistoryWindowDelegate: NSObject, NSWindowDelegate {
+    private let onClose: () -> Void
+    
+    init(onClose: @escaping () -> Void) {
+        self.onClose = onClose
+        super.init()
+    }
+    
+    func windowWillClose(_ notification: Notification) {
+        onClose()
     }
 }
 

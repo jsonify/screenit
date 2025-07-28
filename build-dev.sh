@@ -49,6 +49,27 @@ cp "$INFO_PLIST" "$CONTENTS_DIR/"
 # Copy entitlements to bundle for reference
 cp "$ENTITLEMENTS" "$RESOURCES_DIR/"
 
+# Copy Core Data model - ensure it's compiled to .momd
+echo "📋 Copying Core Data model..."
+if [ -d "screenit/Resources/ScreenitDataModel.xcdatamodeld" ]; then
+    # Copy source model
+    cp -R "screenit/Resources/ScreenitDataModel.xcdatamodeld" "$RESOURCES_DIR/"
+    
+    # Also compile to .momd format for runtime
+    if command -v xcrun &> /dev/null; then
+        echo "🔨 Compiling Core Data model..."
+        xcrun momc "screenit/Resources/ScreenitDataModel.xcdatamodeld" "$RESOURCES_DIR/ScreenitDataModel.momd"
+    fi
+else
+    echo "⚠️ Warning: Core Data model not found at screenit/Resources/ScreenitDataModel.xcdatamodeld"
+fi
+
+# Copy Assets (if they exist)
+if [ -d "screenit/Resources/Assets.xcassets" ]; then
+    echo "📋 Copying Assets..."
+    cp -R "screenit/Resources/Assets.xcassets" "$RESOURCES_DIR/"
+fi
+
 # Sign the app bundle with entitlements
 echo "🔐 Code signing app bundle..."
 codesign --force --sign "$SIGNING_IDENTITY" --entitlements "$ENTITLEMENTS" --options runtime "$APP_BUNDLE"

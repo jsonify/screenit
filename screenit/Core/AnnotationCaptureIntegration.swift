@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import CoreGraphics
+import UniformTypeIdentifiers
 
 // MARK: - Annotation-Enabled Capture Manager
 
@@ -21,9 +22,9 @@ class AnnotationCaptureManager: ObservableObject {
   
   // MARK: - Initialization
   
-  init(captureEngine: CaptureEngine = .shared, annotationEngine: AnnotationEngine = AnnotationEngine()) {
+  init(captureEngine: CaptureEngine = .shared, annotationEngine: AnnotationEngine? = nil) {
     self.captureEngine = captureEngine
-    self.annotationEngine = annotationEngine
+    self.annotationEngine = annotationEngine ?? AnnotationEngine()
   }
   
   // MARK: - Capture and Annotate Workflow
@@ -161,7 +162,7 @@ class AnnotationCaptureManager: ObservableObject {
   private func saveToFile(_ image: CGImage, url: URL) async -> Bool {
     return await withCheckedContinuation { continuation in
       DispatchQueue.global(qos: .userInitiated).async {
-        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, kUTTypePNG, 1, nil) else {
+        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
           continuation.resume(returning: false)
           return
         }

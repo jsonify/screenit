@@ -39,17 +39,29 @@ class CaptureEngine: ObservableObject {
     func updateAuthorizationStatus() async {
         logger.info("Checking ScreenCaptureKit authorization status")
         
-        await permissionManager.checkPermissionStatus()
-        
+        // First check the current status
         switch permissionManager.permissionStatus {
         case .granted:
             authorizationStatus = "authorized"
         case .denied:
             authorizationStatus = "denied"
         case .restricted:
-            authorizationStatus = "restricted"
+            authorizationStatus = "restricted"  
         case .notDetermined:
-            authorizationStatus = "not_determined"
+            // Only refresh if status is undetermined - force check to bypass cooldown
+            await permissionManager.forcePermissionCheck()
+            
+            // Check again after refresh
+            switch permissionManager.permissionStatus {
+            case .granted:
+                authorizationStatus = "authorized"
+            case .denied:
+                authorizationStatus = "denied"
+            case .restricted:
+                authorizationStatus = "restricted"
+            case .notDetermined:
+                authorizationStatus = "not_determined"
+            }
         }
         
         logger.info("Authorization status updated: \(self.authorizationStatus)")
