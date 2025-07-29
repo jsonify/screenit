@@ -172,9 +172,13 @@ class AnnotationEngine: ObservableObject {
     }
     
     func cancelAnnotationSession() {
-        reset()
-        currentSession = nil
-        isAnnotating = false
+        // Safely reset state even if objects are being deallocated
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.reset()
+            self.currentSession = nil
+            self.isAnnotating = false
+        }
     }
     
     // MARK: - Hit Testing
@@ -190,9 +194,16 @@ class AnnotationEngine: ObservableObject {
     // MARK: - State Management
     
     func reset() {
+        // Safely reset all components
         deselectTool()
-        history.reset()
-        toolState.reset()
+        
+        // Reset history and tool state with error handling
+        do {
+            history.reset()
+            toolState.reset()
+        } catch {
+            print("⚠️ Warning: Error during annotation reset: \(error)")
+        }
     }
     
     func setAnnotations(_ annotations: [Annotation]) {
