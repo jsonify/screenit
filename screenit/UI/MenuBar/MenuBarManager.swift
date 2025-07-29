@@ -85,6 +85,8 @@ class MenuBarManager: ObservableObject {
     private let hotkeyManager = GlobalHotkeyManager()
     private let annotationCaptureManager = AnnotationCaptureManager()
     private let dataManager = DataManager.shared
+    private let postCapturePreviewManager = PostCapturePreviewManager()
+    private let preferencesManager = PreferencesManager.shared
     
     init() {
         // Defer heavy initialization to prevent circular dependencies during app launch
@@ -391,23 +393,76 @@ class MenuBarManager: ObservableObject {
         print("Setting up global hotkeys")
         
         Task {
-            // Register the capture area hotkey
-            let success = await hotkeyManager.registerCaptureAreaHotkey { [weak self] in
-                Task { @MainActor in
-                    print("🎯 Global hotkey triggered - Cmd+Shift+4")
-                    self?.triggerCapture()
+            // Parse user's preferred hotkey from preferences
+            if let hotkeyConfig = HotkeyParser.parseHotkey(preferencesManager.captureHotkeyString) {
+                // Update the hotkey manager configuration
+                let success = await hotkeyManager.updateHotkey(hotkeyConfig)
+                
+                if success {
+                    // Register the capture area hotkey with callback
+                    let registerSuccess = await hotkeyManager.registerCaptureAreaHotkey { [weak self] in
+                        Task { @MainActor in
+                            print("🎯 Global hotkey triggered - \(self?.preferencesManager.captureHotkeyString ?? "unknown")")
+                            self?.triggerCapture()
+                        }
+                    }
+                    
+                    if registerSuccess {
+                        print("✅ Global hotkey registered successfully: \(preferencesManager.captureHotkeyString)")
+                    } else {
+                        print("⚠️ Failed to register global hotkey: \(hotkeyManager.errorMessage ?? "Unknown error")")
+                    }
+                } else {
+                    print("⚠️ Failed to update hotkey configuration")
+                }
+            } else {
+                print("❌ Invalid hotkey configuration in preferences: \(preferencesManager.captureHotkeyString)")
+                // Fall back to default
+                let success = await hotkeyManager.registerCaptureAreaHotkey { [weak self] in
+                    Task { @MainActor in
+                        print("🎯 Global hotkey triggered - Default")
+                        self?.triggerCapture()
+                    }
+                }
+                
+                if !success {
+                    print("⚠️ Failed to register fallback global hotkey: \(hotkeyManager.errorMessage ?? "Unknown error")")
                 }
             }
             
-            if success {
-                print("✅ Global hotkey registered successfully")
-            } else {
-                print("⚠️ Failed to register global hotkey: \(hotkeyManager.errorMessage ?? "Unknown error")")
+            // If accessibility permission is needed, we can show a notification
+            if !hotkeyManager.isAvailable {
+                print("💡 Accessibility permission required for global hotkeys")
+            }
+        }
+        
+        // Listen for hotkey preference changes
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("HotkeyPreferenceChanged"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateGlobalHotkey()
+            }
+        }
+    }
+    
+    /// Updates the global hotkey when preferences change
+    private func updateGlobalHotkey() {
+        print("🔄 [DEBUG] Updating global hotkey from preferences")
+        
+        Task {
+            if let hotkeyConfig = HotkeyParser.parseHotkey(preferencesManager.captureHotkeyString) {
+                let success = await hotkeyManager.updateHotkey(hotkeyConfig)
                 
-                // If accessibility permission is needed, we can show a notification
-                if !hotkeyManager.isAvailable {
-                    print("💡 Accessibility permission required for global hotkeys")
+                if success {
+                    print("✅ [DEBUG] Global hotkey updated: \(preferencesManager.captureHotkeyString)")
+                } else {
+                    print("❌ [DEBUG] Failed to update global hotkey")
                 }
+            } else {
+                print("❌ [DEBUG] Invalid hotkey in preferences: \(preferencesManager.captureHotkeyString)")
             }
         }
     }
@@ -501,6 +556,7 @@ class MenuBarManager: ObservableObject {
     private var annotationWindow: NSWindow?
     private var annotationWindowDelegate: AnnotationWindowDelegate?
     private var historyWindow: NSWindow?
+    private var isClosingAnnotationWindow = false
     
     /// Shows the annotation interface for captured image
     private func showAnnotationInterface() async {
@@ -521,6 +577,11 @@ class MenuBarManager: ObservableObject {
         
         window.title = "screenit - Annotate"
         window.contentViewController = hostingController
+        
+        // Ensure annotation window appears in front of all other windows
+        window.level = .floating
+        window.collectionBehavior = [.canJoinAllSpaces]
+        
         window.center()
         window.makeKeyAndOrderFront(nil)
         
@@ -539,10 +600,26 @@ class MenuBarManager: ObservableObject {
     func handleAnnotationCompleted(result: AnnotatedCaptureResult?) {
         print("🎨 [DEBUG] handleAnnotationCompleted() called")
         
-        // Close annotation window
-        annotationWindow?.close()
+        // Prevent infinite recursion during window close
+        guard !isClosingAnnotationWindow else {
+            print("🎨 [DEBUG] Already closing annotation window, skipping")
+            return
+        }
+        
+        isClosingAnnotationWindow = true
+        
+        // Safely disconnect delegate and close window
+        if let window = annotationWindow {
+            window.delegate = nil
+            window.close()
+        }
+        
+        // Clear references
         annotationWindow = nil
         annotationWindowDelegate = nil
+        
+        // Reset flag
+        isClosingAnnotationWindow = false
         
         if let result = result {
             Task {
@@ -552,19 +629,67 @@ class MenuBarManager: ObservableObject {
         }
     }
     
-    /// Handles annotation cancellation
+    /// Handles annotation cancellation (called programmatically)
     func handleAnnotationCancelled() {
         print("🎨 [DEBUG] handleAnnotationCancelled() called")
         
-        // Close annotation window
-        annotationWindow?.close()
+        // Prevent infinite recursion during window close
+        guard !isClosingAnnotationWindow else {
+            print("🎨 [DEBUG] Already closing annotation window, skipping")
+            return
+        }
+        
+        isClosingAnnotationWindow = true
+        
+        // Safely disconnect delegate and close window
+        if let window = annotationWindow {
+            window.delegate = nil
+            window.close()
+        }
+        
+        // Clear references
         annotationWindow = nil
         annotationWindowDelegate = nil
         
         // Clean up annotation capture manager
         annotationCaptureManager.cancelAnnotation()
         
+        // Reset flag
+        isClosingAnnotationWindow = false
+        
         updatePerformanceStatus("Annotation cancelled")
+    }
+    
+    /// Handles annotation cancellation from window delegate (user clicked close button)
+    func handleAnnotationCancelledFromDelegate() {
+        print("🎨 [DEBUG] handleAnnotationCancelledFromDelegate() called - doing immediate cleanup")
+        
+        // Prevent multiple calls during the same close operation
+        guard !isClosingAnnotationWindow else {
+            print("🎨 [DEBUG] Already handling close, skipping delegate cleanup")
+            return
+        }
+        
+        // Do cleanup immediately without accessing potentially corrupted properties
+        // The window is already closing, so we just need to clean up our state
+        print("🎨 [DEBUG] Cleaning up annotation state without property access")
+        
+        // Use async dispatch to avoid race conditions during window closing
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // Cancel annotation through manager if available
+            self.annotationCaptureManager.cancelAnnotation()
+            
+            // Clear references safely
+            self.annotationWindow = nil
+            self.annotationWindowDelegate = nil
+            
+            // Update status safely
+            self.updatePerformanceStatus("Annotation cancelled")
+            
+            print("🎨 [DEBUG] Delegate cleanup completed safely")
+        }
     }
     
     // MARK: - Menu Actions
@@ -623,21 +748,65 @@ class MenuBarManager: ObservableObject {
             isCapturing = false
         }
         
-        // Capture the selected area and start annotation mode
-        print("🔍 [DEBUG] Starting annotation capture workflow...")
-        let success = await annotationCaptureManager.captureAreaAndStartAnnotation(rect)
+        // Capture the selected area (without starting annotation yet)
+        print("🔍 [DEBUG] Capturing area...")
+        guard let capturedImage = await captureEngine.captureArea(rect) else {
+            print("❌ [DEBUG] Area capture failed")
+            await handleCaptureError()
+            return
+        }
+        
+        print("✅ [DEBUG] Area captured successfully")
+        updatePerformanceStatus("Capture complete")
+        
+        // Show preview window with captured image (disabled for now)
+        // TODO: Re-implement preview window functionality
+        if false { // preferencesManager.preferences.showPreviewWindow {
+            print("📱 [DEBUG] Showing post-capture preview...")
+            
+            // Create preview manager with user's preferred timeout
+            let previewManager = PostCapturePreviewManager(timeoutDuration: 3.0) // preferencesManager.preferences.previewDuration
+            
+            previewManager.showPreview(
+                image: capturedImage,
+                onAnnotate: { [weak self] in
+                    Task { @MainActor in
+                        print("🎨 [DEBUG] User chose to annotate from preview")
+                        await self?.startAnnotationWorkflow(with: capturedImage, rect: rect)
+                    }
+                },
+                onDismiss: { [weak self] in
+                    Task { @MainActor in
+                        print("📱 [DEBUG] User dismissed preview - saving directly")
+                        await self?.saveImageToDesktop(capturedImage)
+                    }
+                }
+            )
+        } else {
+            // Skip preview, go directly to annotation workflow
+            print("📱 [DEBUG] Preview disabled - going directly to annotation")
+            await startAnnotationWorkflow(with: capturedImage, rect: rect)
+        }
+        
+        updatePerformanceStatus("Preview shown - choose action")
+    }
+    
+    /// Starts the annotation workflow with a captured image
+    private func startAnnotationWorkflow(with image: CGImage, rect: CGRect) async {
+        print("🎨 [DEBUG] startAnnotationWorkflow() called")
+        
+        // Start annotation session with the captured image
+        let success = await annotationCaptureManager.startAnnotationSession(with: image)
         
         if success {
-            print("✅ [DEBUG] Area captured and annotation mode started")
+            print("✅ [DEBUG] Annotation session started")
             
-            // Show annotation UI
+            // Show annotation UI with proper window level
             await showAnnotationInterface()
             
-            // Update performance status
             updatePerformanceStatus("Ready to annotate")
-            
         } else {
-            print("❌ [DEBUG] Area capture failed")
+            print("❌ [DEBUG] Failed to start annotation session")
             await handleCaptureError()
         }
     }
@@ -930,36 +1099,24 @@ class MenuBarManager: ObservableObject {
             var saveURL: URL
             var locationName: String
             
-            // Try Desktop first with comprehensive logging
-            do {
-                print("🔍 [DEBUG] [\(timestamp)] Attempting FileManager.default.url(for: .desktopDirectory)...")
-                saveURL = try FileManager.default.url(for: .desktopDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-                locationName = "Desktop"
-                print("✅ [DEBUG] [\(timestamp)] Desktop URL resolution SUCCESS")
-                print("   📁 Desktop path: \(saveURL.path)")
-                print("   📁 Desktop absolute path: \(saveURL.absoluteString)")
+            // Use preferred save location from preferences
+            if let preferredURL = preferencesManager.effectiveSaveLocation {
+                saveURL = preferredURL
+                locationName = preferencesManager.saveLocationDisplayName
+                print("✅ [DEBUG] [\(timestamp)] Using preferred save location: \(locationName)")
+                print("   📁 Path: \(saveURL.path)")
                 
-                // Verify Desktop directory exists
-                let desktopExists = FileManager.default.fileExists(atPath: saveURL.path)
-                print("   ✅ Desktop directory exists: \(desktopExists)")
+                // Verify directory exists and is accessible
+                let dirExists = FileManager.default.fileExists(atPath: saveURL.path)
+                let isWritable = FileManager.default.isWritableFile(atPath: saveURL.path)
                 
-                if !desktopExists {
-                    print("⚠️ [DEBUG] [\(timestamp)] Desktop directory does not exist, attempting to fall back...")
-                    throw NSError(domain: "DirectoryNotFound", code: 1, userInfo: [NSLocalizedDescriptionKey: "Desktop directory not found"])
+                if !dirExists || !isWritable {
+                    print("⚠️ [DEBUG] [\(timestamp)] Preferred location not accessible (exists: \(dirExists), writable: \(isWritable))")
+                    throw NSError(domain: "DirectoryNotAccessible", code: 1, userInfo: [NSLocalizedDescriptionKey: "Preferred save location not accessible"])
                 }
-                
-            } catch {
-                print("⚠️ [DEBUG] [\(timestamp)] Desktop not accessible, error details:")
-                print("   ❌ Error domain: \(error.localizedDescription)")
-                print("   ❌ Error code: \((error as NSError).code)")
-                print("   ❌ Error description: \(error)")
-                print("🔍 [DEBUG] [\(timestamp)] Falling back to Downloads directory...")
-                
-                saveURL = try FileManager.default.url(for: .downloadsDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-                locationName = "Downloads"
-                print("✅ [DEBUG] [\(timestamp)] Downloads URL resolution SUCCESS")
-                print("   📁 Downloads path: \(saveURL.path)")
-                print("   📁 Downloads absolute path: \(saveURL.absoluteString)")
+            } else {
+                print("⚠️ [DEBUG] [\(timestamp)] No valid preferred location, falling back to Desktop...")
+                throw NSError(domain: "NoPreferredLocation", code: 1, userInfo: [NSLocalizedDescriptionKey: "No preferred save location configured"])
             }
             
             // MARK: - Comprehensive Permission Auditing
@@ -1111,7 +1268,7 @@ class MenuBarManager: ObservableObject {
             }
             
         } catch {
-            // MARK: - Exception Handling and Logging
+            // MARK: - Exception Handling and Logging with Fallback
             let totalDuration = Date().timeIntervalSince(functionStartTime)
             print("❌ [DEBUG] [\(timestamp)] EXCEPTION in saveImageToDesktop")
             print("   ⏱️ Time before exception: \(String(format: "%.3f", totalDuration)) seconds")
@@ -1125,7 +1282,29 @@ class MenuBarManager: ObservableObject {
                 print("   ❌ Error userInfo: \(nsError.userInfo)")
             }
             
-            await handleFileSaveError("Failed to access Desktop directory: \(error.localizedDescription)")
+            // Try fallback to Desktop if preferred location failed
+            print("🔄 [DEBUG] [\(timestamp)] Attempting fallback to Desktop...")
+            do {
+                let desktopURL = try FileManager.default.url(for: .desktopDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+                let fileTimestamp = DateFormatter().apply {
+                    $0.dateFormat = "yyyy-MM-dd-HH-mm-ss"
+                }.string(from: Date())
+                let filename = "screenit-\(fileTimestamp).png"
+                let fileURL = desktopURL.appendingPathComponent(filename)
+                
+                if let destination = CGImageDestinationCreateWithURL(fileURL as CFURL, UTType.png.identifier as CFString, 1, nil) {
+                    CGImageDestinationAddImage(destination, image, nil)
+                    if CGImageDestinationFinalize(destination) {
+                        print("✅ [DEBUG] [\(timestamp)] Fallback save to Desktop successful")
+                        await handleFileSaveSuccess(fileURL: fileURL, locationName: "Desktop")
+                        return
+                    }
+                }
+            } catch {
+                print("❌ [DEBUG] [\(timestamp)] Fallback to Desktop also failed: \(error)")
+            }
+            
+            await handleFileSaveError("Failed to save image: \(error.localizedDescription)")
         }
         
         // MARK: - Function Exit Logging
@@ -1216,7 +1395,7 @@ class MenuBarManager: ObservableObject {
     
     func showPreferences() {
         print("Preferences triggered")
-        // TODO: Implement preferences window in Phase 5
+        preferencesManager.showPreferencesWindow()
     }
     
     func quitApp() {
@@ -1250,7 +1429,9 @@ class MenuBarManager: ObservableObject {
     }
     
     private func updateMenuBarVisibility() {
-        statusItem?.isVisible = isVisible
+        let shouldShow = isVisible && preferencesManager.preferences.showMenuBarIcon
+        statusItem?.isVisible = shouldShow
+        print("📊 [DEBUG] Menu bar visibility updated: \(shouldShow)")
     }
     
     // MARK: - Menu Control
@@ -1279,6 +1460,9 @@ class MenuBarManager: ObservableObject {
         
         // Hide overlay if showing
         overlayManager.hideOverlay()
+        
+        // Hide preview if showing
+        postCapturePreviewManager.hidePreview()
         
         // Unregister global hotkeys
         hotkeyManager.unregisterAllHotkeys()
@@ -1431,6 +1615,7 @@ class MenuBarManager: ObservableObject {
 
 class AnnotationWindowDelegate: NSObject, NSWindowDelegate {
     weak var manager: MenuBarManager?
+    private var isHandlingClose = false
     
     init(manager: MenuBarManager) {
         self.manager = manager
@@ -1438,7 +1623,17 @@ class AnnotationWindowDelegate: NSObject, NSWindowDelegate {
     }
     
     func windowWillClose(_ notification: Notification) {
-        manager?.handleAnnotationCancelled()
+        // Prevent multiple calls during the same close operation
+        guard !isHandlingClose else { return }
+        isHandlingClose = true
+        
+        // Safely handle cancellation with nil check and async dispatch
+        guard let manager = manager else { return }
+        
+        // Use async dispatch to avoid calling manager during potential deallocation
+        DispatchQueue.main.async { [weak manager] in
+            manager?.handleAnnotationCancelledFromDelegate()
+        }
     }
 }
 

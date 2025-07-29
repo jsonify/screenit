@@ -18,7 +18,7 @@ final class DataManager: ObservableObject {
     private let logger = Logger(subsystem: "com.screenit.app", category: "DataManager")
     
     /// Maximum number of captures to retain (configurable)
-    var captureRetentionLimit: Int = 10 {
+    @Published var captureRetentionLimit: Int = 10 {
         didSet {
             enforceRetentionLimit()
         }
@@ -28,6 +28,32 @@ final class DataManager: ObservableObject {
     
     init() {
         loadRecentCaptures()
+        
+        // Initialize retention limit from preferences
+        Task { @MainActor in
+            captureRetentionLimit = Int(PreferencesManager.shared.preferences.historyRetentionLimit)
+        }
+        
+        // Observe preference changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(preferencesDidChange),
+            name: PreferencesManager.preferencesDidChangeNotification,
+            object: nil
+        )
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    @objc private func preferencesDidChange(_ notification: Notification) {
+        // Update retention limit when preferences change
+        if let preferences = notification.object as? UserPreferences {
+            DispatchQueue.main.async { [weak self] in
+                self?.captureRetentionLimit = Int(preferences.historyRetentionLimit)
+            }
+        }
     }
     
     // MARK: - Capture Management

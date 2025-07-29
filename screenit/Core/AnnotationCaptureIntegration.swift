@@ -22,8 +22,12 @@ class AnnotationCaptureManager: ObservableObject {
   
   // MARK: - Initialization
   
-  init(captureEngine: CaptureEngine = .shared, annotationEngine: AnnotationEngine? = nil) {
-    self.captureEngine = captureEngine
+  init(captureEngine: CaptureEngine? = nil, annotationEngine: AnnotationEngine? = nil) {
+    if let captureEngine = captureEngine {
+      self.captureEngine = captureEngine
+    } else {
+      self.captureEngine = CaptureEngine.shared
+    }
     self.annotationEngine = annotationEngine ?? AnnotationEngine()
   }
   
@@ -45,7 +49,7 @@ class AnnotationCaptureManager: ObservableObject {
     return await startAnnotationSession(with: image)
   }
   
-  private func startAnnotationSession(with image: CGImage) async -> Bool {
+  func startAnnotationSession(with image: CGImage) async -> Bool {
     capturedImage = image
     imageSize = CGSize(width: image.width, height: image.height)
     

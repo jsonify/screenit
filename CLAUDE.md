@@ -30,3 +30,7 @@ When asked to work on this codebase:
 - Product-specific files in `.agent-os/product/` override any global standards
 - User's specific instructions override (or amend) instructions found in `.agent-os/specs/...`
 - Always adhere to established patterns, code style, and best practices documented above.
+
+## Project Specific Memories
+
+- This is a Swift Package Manager project, not an Xcode project. ALWAYS build it using swift build.
