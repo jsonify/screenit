@@ -58,13 +58,16 @@ struct PreferencesView: View {
                 
                 Spacer()
                 
+                // TODO: Re-implement export/import functionality
                 Button("Export Settings") {
-                    exportSettings()
+                    // exportSettings()
                 }
+                .disabled(true)
                 
                 Button("Import Settings") {
-                    importSettings()
+                    // importSettings()
                 }
+                .disabled(true)
             }
             .padding()
         }
@@ -92,47 +95,13 @@ struct PreferencesView: View {
     }
     
     private func exportSettings() {
-        guard let data = preferencesManager.exportPreferences() else { return }
-        
-        let savePanel = NSSavePanel()
-        savePanel.title = "Export screenit Settings"
-        savePanel.nameFieldStringValue = "screenit-preferences.json"
-        savePanel.allowedContentTypes = [UTType.json]
-        
-        savePanel.begin { response in
-            if response == .OK, let url = savePanel.url {
-                do {
-                    try data.write(to: url)
-                    print("✅ Settings exported successfully")
-                } catch {
-                    print("❌ Failed to export settings: \(error)")
-                }
-            }
-        }
+        // TODO: Re-implement export functionality
+        print("Export settings not yet implemented")
     }
     
     private func importSettings() {
-        let openPanel = NSOpenPanel()
-        openPanel.title = "Import screenit Settings"
-        openPanel.allowedContentTypes = [UTType.json]
-        openPanel.allowsMultipleSelection = false
-        
-        openPanel.begin { response in
-            if response == .OK, let url = openPanel.urls.first {
-                do {
-                    let data = try Data(contentsOf: url)
-                    if preferencesManager.importPreferences(from: data) {
-                        print("✅ Settings imported successfully")
-                    } else {
-                        importError = "Invalid settings file format."
-                        showingImportAlert = true
-                    }
-                } catch {
-                    importError = "Failed to read settings file: \(error.localizedDescription)"
-                    showingImportAlert = true
-                }
-            }
-        }
+        // TODO: Re-implement import functionality
+        print("Import settings not yet implemented")
     }
     
     private func handleCustomLocationSelection(_ result: Result<[URL], Error>) {
@@ -289,6 +258,8 @@ struct AnnotationPreferencesView: View {
     @EnvironmentObject var preferencesManager: PreferencesManager
     
     var body: some View {
+        // Debug logging for crash investigation
+        let _ = print("🔍 [DEBUG] AnnotationPreferencesView rendering - preferences object valid: \(!preferencesManager.preferences.isDeleted)")
         VStack(alignment: .leading, spacing: 16) {
             Text("Annotations")
                 .font(.title2)
@@ -296,8 +267,14 @@ struct AnnotationPreferencesView: View {
             
             VStack(alignment: .leading, spacing: 12) {
                 Toggle("Show annotation toolbar", isOn: Binding(
-                    get: { preferencesManager.preferences.showAnnotationToolbar },
-                    set: { preferencesManager.preferences.showAnnotationToolbar = $0 }
+                    get: { 
+                        guard !preferencesManager.preferences.isDeleted else { return true }
+                        return preferencesManager.preferences.showAnnotationToolbar 
+                    },
+                    set: { 
+                        guard !preferencesManager.preferences.isDeleted else { return }
+                        preferencesManager.preferences.showAnnotationToolbar = $0 
+                    }
                 ))
                 
                 Divider()
@@ -311,13 +288,19 @@ struct AnnotationPreferencesView: View {
                         Text("Arrow thickness:")
                         Slider(
                             value: Binding(
-                                get: { preferencesManager.preferences.defaultArrowThickness },
-                                set: { preferencesManager.preferences.defaultArrowThickness = $0 }
+                                get: { 
+                                    guard !preferencesManager.preferences.isDeleted else { return 2.0 }
+                                    return Double(preferencesManager.preferences.defaultArrowThickness) 
+                                },
+                                set: { 
+                                    guard !preferencesManager.preferences.isDeleted else { return }
+                                    preferencesManager.preferences.defaultArrowThickness = Float($0) 
+                                }
                             ),
                             in: 1...10,
                             step: 0.5
                         )
-                        Text("\(preferencesManager.preferences.defaultArrowThickness, specifier: "%.1f")")
+                        Text("\(preferencesManager.preferences.isDeleted ? 2.0 : preferencesManager.preferences.defaultArrowThickness, specifier: "%.1f")")
                             .frame(width: 35, alignment: .trailing)
                     }
                     
@@ -325,21 +308,42 @@ struct AnnotationPreferencesView: View {
                         Text("Text size:")
                         Slider(
                             value: Binding(
-                                get: { preferencesManager.preferences.defaultTextSize },
-                                set: { preferencesManager.preferences.defaultTextSize = $0 }
+                                get: { 
+                                    guard !preferencesManager.preferences.isDeleted else { return 14.0 }
+                                    return Double(preferencesManager.preferences.defaultTextSize) 
+                                },
+                                set: { 
+                                    guard !preferencesManager.preferences.isDeleted else { return }
+                                    preferencesManager.preferences.defaultTextSize = Float($0) 
+                                }
                             ),
                             in: 10...48,
                             step: 2
                         )
-                        Text("\(Int(preferencesManager.preferences.defaultTextSize))")
+                        Text("\(Int(preferencesManager.preferences.isDeleted ? 14.0 : preferencesManager.preferences.defaultTextSize))")
                             .frame(width: 35, alignment: .trailing)
                     }
                     
                     HStack {
                         Text("Default color:")
                         ColorPicker("", selection: Binding(
-                            get: { Color(hex: preferencesManager.preferences.defaultAnnotationColor) ?? .red },
-                            set: { preferencesManager.preferences.defaultAnnotationColor = $0.hexString }
+                            get: { 
+                                // Safely get the color with validation
+                                guard !preferencesManager.preferences.isDeleted else {
+                                    return .red // Default fallback
+                                }
+                                
+                                let colorHex = preferencesManager.preferences.defaultAnnotationColor
+                                guard !colorHex.isEmpty else {
+                                    return .red // Default fallback for empty string
+                                }
+                                return Color(hex: colorHex) ?? .red
+                            },
+                            set: { newColor in
+                                // Safely set the color with validation
+                                guard !preferencesManager.preferences.isDeleted else { return }
+                                preferencesManager.preferences.defaultAnnotationColor = newColor.hexString
+                            }
                         ))
                         .frame(width: 50)
                     }
@@ -475,10 +479,15 @@ extension Color {
     }
     
     var hexString: String {
-        let components = self.cgColor?.components ?? [0, 0, 0, 1]
-        let r = Int(components[0] * 255)
-        let g = Int(components[1] * 255)  
-        let b = Int(components[2] * 255)
+        guard let cgColor = self.cgColor,
+              let components = cgColor.components,
+              components.count >= 3 else {
+            return "#FF0000" // Default to red if conversion fails
+        }
+        
+        let r = Int((components[0] * 255).rounded())
+        let g = Int((components[1] * 255).rounded())
+        let b = Int((components[2] * 255).rounded())
         return String(format: "#%02X%02X%02X", r, g, b)
     }
 }

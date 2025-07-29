@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import Carbon
 
 struct HotkeyCustomizationView: View {
     @EnvironmentObject var preferencesManager: PreferencesManager
@@ -20,7 +21,7 @@ struct HotkeyCustomizationView: View {
                 
                 // Current hotkey display
                 HStack {
-                    Text(preferencesManager.preferences.captureHotkey.hotkeyDisplayName)
+                    Text(preferencesManager.captureHotkeyDisplayString)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(Color.gray.opacity(0.2))
@@ -28,7 +29,7 @@ struct HotkeyCustomizationView: View {
                         .font(.system(.body, design: .monospaced))
                     
                     Button("Change...") {
-                        customHotkeyText = preferencesManager.preferences.captureHotkey
+                        customHotkeyText = preferencesManager.captureHotkeyString
                         showingRecommendations = true
                     }
                     .buttonStyle(.bordered)
@@ -48,9 +49,13 @@ struct HotkeyCustomizationView: View {
         }
         .sheet(isPresented: $showingRecommendations) {
             HotkeyCustomizationSheet(
-                currentHotkey: preferencesManager.preferences.captureHotkey,
+                currentHotkey: preferencesManager.captureHotkeyString,
                 onHotkeyChanged: { newHotkey in
-                    preferencesManager.preferences.captureHotkey = newHotkey
+                    let success = preferencesManager.updateCaptureHotkey(newHotkey)
+                    if !success {
+                        // Handle error - could show an alert or update validation state
+                        print("Failed to update hotkey to: \(newHotkey)")
+                    }
                 }
             )
             .environmentObject(preferencesManager)
@@ -58,7 +63,7 @@ struct HotkeyCustomizationView: View {
         .onAppear {
             validateCurrentHotkey()
         }
-        .onChange(of: preferencesManager.preferences.captureHotkey) { _ in
+        .onChange(of: preferencesManager.captureHotkeyString) {
             validateCurrentHotkey()
         }
     }
@@ -88,7 +93,7 @@ struct HotkeyCustomizationView: View {
     }
     
     private func validateCurrentHotkey() {
-        validationResult = HotkeyParser.validateHotkey(preferencesManager.preferences.captureHotkey)
+        validationResult = preferencesManager.validateHotkeyString(preferencesManager.captureHotkeyString)
     }
 }
 
@@ -160,7 +165,9 @@ struct HotkeyCustomizationSheet: View {
             // Bottom actions
             HStack {
                 Button("Reset to Default") {
-                    handlePresetSelected("cmd+shift+4")
+                    preferencesManager.resetCaptureHotkeyToDefault()
+                    customText = preferencesManager.captureHotkeyString
+                    validateTextInput()
                 }
                 .foregroundColor(.orange)
                 
@@ -275,6 +282,9 @@ struct RecorderMethodView: View {
                 }
             }
             .onTapGesture {
+                // Safety check to prevent actions on deallocating recorder
+                guard !recorder.isCleaningUpPublic else { return }
+                
                 if recorder.isRecording {
                     recorder.stopRecording()
                 } else {
@@ -284,17 +294,19 @@ struct RecorderMethodView: View {
             
             if recorder.isRecording {
                 Button("Stop Recording") {
+                    guard !recorder.isCleaningUpPublic else { return }
                     recorder.stopRecording()
                 }
                 .foregroundColor(.red)
             } else {
                 Button(recorder.recordedHotkey == nil ? "Start Recording" : "Record Again") {
+                    guard !recorder.isCleaningUpPublic else { return }
                     recorder.startRecording()
                 }
             }
         }
         .padding()
-        .onChange(of: recorder.recordedHotkey) { hotkey in
+        .onChange(of: recorder.recordedHotkey) { _, hotkey in
             if let hotkey = hotkey {
                 onHotkeyRecorded(hotkey)
             }
@@ -315,7 +327,7 @@ struct TextInputMethodView: View {
             TextField("e.g., cmd+shift+4", text: $customText)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(.body, design: .monospaced))
-                .onChange(of: customText) { _ in
+                .onChange(of: customText) {
                     onValidate()
                 }
             
@@ -423,9 +435,14 @@ class HotkeyRecorder: ObservableObject {
     
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+    private var isCleaningUp = false
+    
+    var isCleaningUpPublic: Bool {
+        isCleaningUp
+    }
     
     func startRecording() {
-        guard !isRecording else { return }
+        guard !isRecording && !isCleaningUp else { return }
         
         print("🎤 [DEBUG] Starting hotkey recording...")
         isRecording = true
@@ -434,6 +451,9 @@ class HotkeyRecorder: ObservableObject {
         // Create event tap for key events
         let eventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.flagsChanged.rawValue)
         
+        // Store a weak reference to avoid retain cycle
+        let weakSelf = Unmanaged.passUnretained(self)
+        
         eventTap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
@@ -441,16 +461,25 @@ class HotkeyRecorder: ObservableObject {
             eventsOfInterest: CGEventMask(eventMask),
             callback: { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
                 guard let refcon = refcon else { return Unmanaged.passUnretained(event) }
+                
+                // Use unretained reference to avoid retain cycle
                 let recorder = Unmanaged<HotkeyRecorder>.fromOpaque(refcon).takeUnretainedValue()
+                
+                // Safety check: ensure recorder is still valid
+                guard !recorder.isCleaningUp else {
+                    return nil // Consume event but don't process
+                }
+                
                 recorder.handleKeyEvent(type: type, event: event)
                 return nil // Consume the event
             },
-            userInfo: Unmanaged.passUnretained(self).toOpaque()
+            userInfo: weakSelf.toOpaque()
         )
         
         guard let eventTap = eventTap else {
-            print("❌ [DEBUG] Failed to create event tap")
+            print("❌ [DEBUG] Failed to create event tap - accessibility permissions may be needed")
             isRecording = false
+            isCleaningUp = false
             return
         }
         
@@ -464,29 +493,18 @@ class HotkeyRecorder: ObservableObject {
         print("✅ [DEBUG] Hotkey recording started")
     }
     
-    func stopRecording() {
-        guard isRecording else { return }
-        
-        print("🛑 [DEBUG] Stopping hotkey recording...")
-        isRecording = false
-        
-        // Clean up event tap
-        if let eventTap = eventTap {
-            CGEvent.tapEnable(tap: eventTap, enable: false)
-            CFMachPortInvalidate(eventTap)
-            self.eventTap = nil
+    nonisolated func stopRecording() {
+        Task { @MainActor in
+            guard isRecording && !isCleaningUp else { return }
+            
+            print("🛑 [DEBUG] Stopping hotkey recording...")
+            cleanupImmediately()
         }
-        
-        if let runLoopSource = runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
-            self.runLoopSource = nil
-        }
-        
-        print("✅ [DEBUG] Hotkey recording stopped")
     }
     
-    private func handleKeyEvent(type: CGEventType, event: CGEvent) {
-        guard isRecording else { return }
+    nonisolated private func handleKeyEvent(type: CGEventType, event: CGEvent) {
+        Task { @MainActor in
+            guard isRecording && !isCleaningUp else { return }
         
         if type == .keyDown {
             let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
@@ -520,63 +538,53 @@ class HotkeyRecorder: ObservableObject {
                 
                 // Stop recording after successful capture
                 Task { @MainActor in
-                    stopRecording()
+                    guard isRecording && !isCleaningUp else { return }
+                    cleanupImmediately()
                 }
             }
+        }
         }
     }
     
     private func keyCodeToString(_ keyCode: UInt32) -> String? {
-        // This is a simplified mapping - you'd want to use the full keyCodeMap from HotkeyParser
-        switch keyCode {
-        case 18: return "1"
-        case 19: return "2"
-        case 20: return "3"
-        case 21: return "4"
-        case 23: return "5"
-        case 22: return "6"
-        case 26: return "7"
-        case 28: return "8"
-        case 25: return "9"
-        case 29: return "0"
-        case 0: return "a"
-        case 11: return "b"
-        case 8: return "c"
-        case 2: return "d"
-        case 14: return "e"
-        case 3: return "f"
-        case 5: return "g"
-        case 4: return "h"
-        case 34: return "i"
-        case 38: return "j"
-        case 40: return "k"
-        case 37: return "l"
-        case 46: return "m"
-        case 45: return "n"
-        case 31: return "o"
-        case 35: return "p"
-        case 12: return "q"
-        case 15: return "r"
-        case 1: return "s"
-        case 17: return "t"
-        case 32: return "u"
-        case 9: return "v"
-        case 13: return "w"
-        case 7: return "x"
-        case 16: return "y"
-        case 6: return "z"
-        case 49: return "space"
-        case 36: return "return"
-        case 53: return "escape"
-        case 51: return "delete"
-        default: return nil
-        }
+        // Use HotkeyParser's comprehensive key mapping
+        return HotkeyParser.keyCodeToString(keyCode)
     }
     
     deinit {
-        Task { @MainActor in
-            stopRecording()
+        print("🗑️ [DEBUG] HotkeyRecorder deinit called")
+        isCleaningUp = true
+        
+        // Clean up event tap synchronously to avoid retain cycles
+        if let eventTap = eventTap {
+            CGEvent.tapEnable(tap: eventTap, enable: false)
+            CFMachPortInvalidate(eventTap)
         }
+        
+        // Clean up run loop source synchronously
+        if let runLoopSource = runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
+        }
+    }
+    
+    private func cleanupImmediately() {
+        print("🧹 [DEBUG] Performing immediate cleanup")
+        isRecording = false
+        
+        // Clean up event tap synchronously
+        if let eventTap = eventTap {
+            CGEvent.tapEnable(tap: eventTap, enable: false)
+            CFMachPortInvalidate(eventTap)
+            self.eventTap = nil
+        }
+        
+        // Clean up run loop source synchronously
+        if let runLoopSource = runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
+            self.runLoopSource = nil
+        }
+        
+        print("✅ [DEBUG] Immediate cleanup completed")
     }
 }
 

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="22758" systemVersion="23F79" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="AnnotationData" representedClassName="AnnotationData" syncable="YES">
+        <attribute name="colorHex" optional="YES" attributeType="String"/>
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="normalizedHeight" optional="YES" attributeType="Float" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="normalizedWidth" optional="YES" attributeType="Float" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="normalizedX" optional="YES" attributeType="Float" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="normalizedY" optional="YES" attributeType="Float" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="properties" optional="YES" attributeType="Binary"/>
+        <attribute name="thickness" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="timestamp" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="type" optional="YES" attributeType="String"/>
+        <relationship name="captureItem" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CaptureItem" inverseName="annotations" inverseEntity="CaptureItem"/>
+    </entity>
+    <entity name="CaptureItem" representedClassName="CaptureItem" syncable="YES">
+        <attribute name="fileSize" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="height" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="imageData" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="YES"/>
+        <attribute name="thumbnailData" optional="YES" attributeType="Binary"/>
+        <attribute name="timestamp" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="width" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="annotations" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="AnnotationData" inverseName="captureItem" inverseEntity="AnnotationData"/>
+    </entity>
+    <entity name="UserPreferences" representedClassName="UserPreferences" syncable="YES">
+        <attribute name="autoSaveToDesktop" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="captureHotkey" optional="YES" attributeType="String"/>
+        <attribute name="annotationHotkey" optional="YES" attributeType="String"/>
+        <attribute name="historyHotkey" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="defaultArrowColor" optional="YES" attributeType="String" defaultValueString="#FF0000"/>
+        <attribute name="defaultArrowThickness" optional="YES" attributeType="Float" defaultValueString="2.0" usesScalarValueType="YES"/>
+        <attribute name="defaultHighlightColor" optional="YES" attributeType="String" defaultValueString="#FFFF00"/>
+        <attribute name="defaultRectangleColor" optional="YES" attributeType="String" defaultValueString="#0066CC"/>
+        <attribute name="defaultRectangleThickness" optional="YES" attributeType="Float" defaultValueString="2.0" usesScalarValueType="YES"/>
+        <attribute name="defaultSaveLocation" optional="YES" attributeType="String"/>
+        <attribute name="defaultTextColor" optional="YES" attributeType="String" defaultValueString="#000000"/>
+        <attribute name="defaultTextSize" optional="YES" attributeType="Float" defaultValueString="14.0" usesScalarValueType="YES"/>
+        <attribute name="enableSoundEffects" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="enableSounds" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="customSaveLocation" optional="YES" attributeType="String" defaultValueString="" usesScalarValueType="NO"/>
+        <attribute name="saveLocation" optional="YES" attributeType="String" defaultValueString="desktop" usesScalarValueType="NO"/>
+        <attribute name="showAnnotationToolbar" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="autoSaveToHistory" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="enableHighDPICapture" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="enableNotifications" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="showPreviewWindow" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="defaultAnnotationColor" optional="YES" attributeType="String" defaultValueString="#FF0000" usesScalarValueType="NO"/>
+        <attribute name="enableHistoryThumbnails" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="previewDuration" optional="YES" attributeType="Double" defaultValueString="6.0" usesScalarValueType="YES"/>
+        <attribute name="compressionQuality" optional="YES" attributeType="Double" defaultValueString="0.8" usesScalarValueType="YES"/>
+        <attribute name="maxImageSize" optional="YES" attributeType="Integer 32" defaultValueString="8192" usesScalarValueType="YES"/>
+        <attribute name="historyRetentionLimit" optional="YES" attributeType="Integer 32" defaultValueString="10" usesScalarValueType="YES"/>
+        <attribute name="launchAtLogin" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="showCaptureNotifications" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="showMenuBarIcon" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+</model>

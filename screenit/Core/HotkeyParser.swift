@@ -249,6 +249,17 @@ struct HotkeyParser {
         let normalized = hotkeyString.lowercased().replacingOccurrences(of: " ", with: "")
         return systemConflicts.contains(normalized)
     }
+    
+    /// Converts a key code to its string representation
+    static func keyCodeToString(_ keyCode: UInt32) -> String? {
+        // Search through the keyCodeMap to find the string for this key code
+        for (key, code) in keyCodeMap {
+            if code == keyCode {
+                return key
+            }
+        }
+        return nil
+    }
 }
 
 // MARK: - Hotkey Validation Results

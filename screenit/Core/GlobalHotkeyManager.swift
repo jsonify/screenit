@@ -61,6 +61,7 @@ class GlobalHotkeyManager: ObservableObject {
     private let logger = Logger(subsystem: "com.screenit.screenit", category: "GlobalHotkey")
     private var eventHotKeyRef: EventHotKeyRef?
     private var eventHandlerRef: EventHandlerRef?
+    private var preferencesObserver: NSObjectProtocol?
     
     // Callbacks
     private var onCaptureAreaTriggered: (() -> Void)?
@@ -75,9 +76,14 @@ class GlobalHotkeyManager: ObservableObject {
     init() {
         logger.info("GlobalHotkeyManager initialized")
         setupEventHandler()
+        setupPreferencesObserver()
     }
     
     deinit {
+        // Clean up observer
+        if let observer = preferencesObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
         // Note: Cannot call async methods from deinit
         // Cleanup should be called manually before deinitialization
         logger.info("GlobalHotkeyManager deinitialized")
@@ -87,6 +93,9 @@ class GlobalHotkeyManager: ObservableObject {
     
     /// Registers the global hotkey with callback
     func registerCaptureAreaHotkey(onTriggered: @escaping () -> Void) async -> Bool {
+        // Load current hotkey from preferences
+        currentHotkey = PreferencesManager.shared.getCurrentCaptureHotkeyConfig()
+        
         logger.info("Registering capture area hotkey: \(self.currentHotkey.description)")
         
         // Store callback
@@ -298,6 +307,43 @@ class GlobalHotkeyManager: ObservableObject {
         
         let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
         NSWorkspace.shared.open(url)
+    }
+    
+    // MARK: - Preferences Integration
+    
+    private func setupPreferencesObserver() {
+        // Listen for hotkey preference changes
+        preferencesObserver = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("HotkeyPreferenceChanged"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor in
+                await self?.handleHotkeyPreferenceChanged()
+            }
+        }
+        
+        logger.info("Preferences observer set up for hotkey changes")
+    }
+    
+    @MainActor
+    private func handleHotkeyPreferenceChanged() async {
+        logger.info("Hotkey preference changed, updating registration")
+        
+        guard isEnabled, let callback = onCaptureAreaTriggered else {
+            // Update current hotkey even if not enabled
+            self.currentHotkey = PreferencesManager.shared.getCurrentCaptureHotkeyConfig()
+            logger.info("Updated hotkey configuration while disabled: \(self.currentHotkey.description)")
+            return
+        }
+        
+        // Re-register with new hotkey
+        let success = await registerCaptureAreaHotkey(onTriggered: callback)
+        if success {
+            logger.info("Successfully updated hotkey registration")
+        } else {
+            logger.error("Failed to update hotkey registration")
+        }
     }
     
     // MARK: - Status Properties

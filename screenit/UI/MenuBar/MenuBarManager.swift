@@ -394,7 +394,7 @@ class MenuBarManager: ObservableObject {
         
         Task {
             // Parse user's preferred hotkey from preferences
-            if let hotkeyConfig = HotkeyParser.parseHotkey(preferencesManager.preferences.captureHotkey) {
+            if let hotkeyConfig = HotkeyParser.parseHotkey(preferencesManager.captureHotkeyString) {
                 // Update the hotkey manager configuration
                 let success = await hotkeyManager.updateHotkey(hotkeyConfig)
                 
@@ -402,13 +402,13 @@ class MenuBarManager: ObservableObject {
                     // Register the capture area hotkey with callback
                     let registerSuccess = await hotkeyManager.registerCaptureAreaHotkey { [weak self] in
                         Task { @MainActor in
-                            print("🎯 Global hotkey triggered - \(self?.preferencesManager.preferences.captureHotkey ?? "unknown")")
+                            print("🎯 Global hotkey triggered - \(self?.preferencesManager.captureHotkeyString ?? "unknown")")
                             self?.triggerCapture()
                         }
                     }
                     
                     if registerSuccess {
-                        print("✅ Global hotkey registered successfully: \(preferencesManager.preferences.captureHotkey)")
+                        print("✅ Global hotkey registered successfully: \(preferencesManager.captureHotkeyString)")
                     } else {
                         print("⚠️ Failed to register global hotkey: \(hotkeyManager.errorMessage ?? "Unknown error")")
                     }
@@ -416,7 +416,7 @@ class MenuBarManager: ObservableObject {
                     print("⚠️ Failed to update hotkey configuration")
                 }
             } else {
-                print("❌ Invalid hotkey configuration in preferences: \(preferencesManager.preferences.captureHotkey)")
+                print("❌ Invalid hotkey configuration in preferences: \(preferencesManager.captureHotkeyString)")
                 // Fall back to default
                 let success = await hotkeyManager.registerCaptureAreaHotkey { [weak self] in
                     Task { @MainActor in
@@ -453,16 +453,16 @@ class MenuBarManager: ObservableObject {
         print("🔄 [DEBUG] Updating global hotkey from preferences")
         
         Task {
-            if let hotkeyConfig = HotkeyParser.parseHotkey(preferencesManager.preferences.captureHotkey) {
+            if let hotkeyConfig = HotkeyParser.parseHotkey(preferencesManager.captureHotkeyString) {
                 let success = await hotkeyManager.updateHotkey(hotkeyConfig)
                 
                 if success {
-                    print("✅ [DEBUG] Global hotkey updated: \(preferencesManager.preferences.captureHotkey)")
+                    print("✅ [DEBUG] Global hotkey updated: \(preferencesManager.captureHotkeyString)")
                 } else {
                     print("❌ [DEBUG] Failed to update global hotkey")
                 }
             } else {
-                print("❌ [DEBUG] Invalid hotkey in preferences: \(preferencesManager.preferences.captureHotkey)")
+                print("❌ [DEBUG] Invalid hotkey in preferences: \(preferencesManager.captureHotkeyString)")
             }
         }
     }
@@ -759,12 +759,13 @@ class MenuBarManager: ObservableObject {
         print("✅ [DEBUG] Area captured successfully")
         updatePerformanceStatus("Capture complete")
         
-        // Show preview window with captured image (if enabled in preferences)
-        if preferencesManager.preferences.showPreviewWindow {
+        // Show preview window with captured image (disabled for now)
+        // TODO: Re-implement preview window functionality
+        if false { // preferencesManager.preferences.showPreviewWindow {
             print("📱 [DEBUG] Showing post-capture preview...")
             
             // Create preview manager with user's preferred timeout
-            let previewManager = PostCapturePreviewManager(timeoutDuration: preferencesManager.preferences.previewDuration)
+            let previewManager = PostCapturePreviewManager(timeoutDuration: 3.0) // preferencesManager.preferences.previewDuration
             
             previewManager.showPreview(
                 image: capturedImage,

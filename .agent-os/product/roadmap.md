@@ -83,29 +83,29 @@ The following infrastructure has been established:
 - ✅ Phase 2 completion
 - ✅ SwiftUI Canvas performance testing
 
-## Phase 4: Data Persistence & History (2 weeks)
+## Phase 4: Data Persistence & History ✅ COMPLETED
 
 **Goal:** Capture history with Core Data backend
 **Success Criteria:** Persistent storage with thumbnail grid view
 
 ### Must-Have Features
 
-- [ ] Core Data Stack - Database setup with CaptureItem and Annotation models `M`
-- [ ] History Storage - Save captures with metadata and thumbnails `M`
-- [ ] History Grid View - Thumbnail interface for recent captures `M`
-- [ ] Copy to Clipboard - Quick clipboard action from history `S`
-- [ ] Delete from History - Remove unwanted captures `S`
+- [x] Core Data Stack - Database setup with CaptureItem and Annotation models `M`
+- [x] History Storage - Save captures with metadata and thumbnails `M`
+- [x] History Grid View - Thumbnail interface for recent captures `M`
+- [x] Copy to Clipboard - Quick clipboard action from history `S`
+- [x] Delete from History - Remove unwanted captures `S`
 
 ### Should-Have Features
 
-- [ ] History Metadata - Timestamp, dimensions, file size tracking `S`
-- [ ] Export Options - Save As dialog with custom locations `S`
-- [ ] History Capacity Management - Configurable retention limits `S`
+- [x] History Metadata - Timestamp, dimensions, file size tracking `S`
+- [x] Export Options - Save As dialog with custom locations `S`
+- [x] History Capacity Management - Configurable retention limits `S`
 
 ### Dependencies
 
-- Phase 3 completion
-- Core Data migration strategy
+- ✅ Phase 3 completion
+- ✅ Core Data migration strategy
 
 ## Phase 5: Polish & Preferences (1-2 weeks)
 
