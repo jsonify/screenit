@@ -110,26 +110,33 @@ The following infrastructure has been established:
 ## Phase 5: Polish & Preferences (1-2 weeks)
 
 **Goal:** User customization and production-ready polish
-**Success Criteria:** Configurable preferences with stable performance
+**Success Criteria:** Modern sidebar-based preferences with comprehensive settings
+
+### Active Specification
+
+- **Preferences Redesign Spec:** @.agent-os/specs/2025-07-29-preferences-redesign/
 
 ### Must-Have Features
 
-- [ ] Preferences Window - SwiftUI settings interface `M`
-- [ ] Hotkey Customization - User-configurable keyboard shortcuts `M`
-- [ ] Menu Bar Visibility - Toggle status bar icon display `S`
-- [ ] Default Save Location - Custom folder selection `S`
-- [ ] History Retention Settings - Configurable capture limit `S`
+- [ ] **Preferences Window Redesign** - Modern sidebar-based preferences interface matching design mocks `XL`
+- [ ] **Sidebar Navigation System** - Icon-based navigation with General, Screenshots, Annotate, Quick Access, Advanced sections `L`
+- [ ] **General Preferences Panel** - Startup options, sounds, menu bar settings, export location, post-capture actions `M`
+- [ ] **Screenshots Preferences Panel** - File format, retina scaling, color management, frame options, capture modes `M`
+- [ ] **Annotate Preferences Panel** - Arrow, pencil, background tool, shadow, canvas, accessibility settings `M`
+- [ ] **Quick Access Preferences Panel** - Overlay positioning, multi-display, auto-close, drag & drop settings `M`
+- [ ] **Advanced Preferences Panel** - File naming, clipboard options, history management, text recognition `M`
 
 ### Should-Have Features
 
-- [ ] Annotation Defaults - Preset tool colors and thickness `S`
-- [ ] Launch at Login - System integration option `S`
-- [ ] Performance Optimization - Memory usage and startup time `M`
+- [x] **Core Data Schema Migration** - Support for new preference properties with backwards compatibility `L`
+- [ ] **Settings Persistence** - All new settings properly saved and loaded across app restarts `M`
+- [ ] **Design Mock Compliance** - UI exactly matches provided design specifications `M`
 
 ### Dependencies
 
 - Phase 4 completion
-- User testing and feedback integration
+- Design mocks in `/Users/jsonify/Desktop/mocks` directory
+- Core Data migration strategy for new preference properties
 
 ## Future Phases (Post-MVP)
 
