@@ -200,6 +200,62 @@ class PreferencesManager: ObservableObject {
         preferences.defaultTextSize = newPreferences.defaultTextSize
         preferences.defaultRectangleThickness = newPreferences.defaultRectangleThickness
         
+        // Reset new properties to defaults (from mocks)
+        preferences.showQuickAccessOverlayAfterCapture = newPreferences.showQuickAccessOverlayAfterCapture
+        preferences.copyFileToClipboardAfterCapture = newPreferences.copyFileToClipboardAfterCapture
+        preferences.saveAfterCapture = newPreferences.saveAfterCapture
+        preferences.uploadToCloudAfterCapture = newPreferences.uploadToCloudAfterCapture
+        preferences.openAnnotateToolAfterCapture = newPreferences.openAnnotateToolAfterCapture
+        preferences.pinToScreenAfterCapture = newPreferences.pinToScreenAfterCapture
+        preferences.openVideoEditorAfterCapture = newPreferences.openVideoEditorAfterCapture
+        preferences.playSounds = newPreferences.playSounds
+        preferences.shutterSound = newPreferences.shutterSound
+        preferences.hideDesktopIconsWhileCapturing = newPreferences.hideDesktopIconsWhileCapturing
+        
+        preferences.fileFormat = newPreferences.fileFormat
+        preferences.scaleRetinaScreenshotsTo1x = newPreferences.scaleRetinaScreenshotsTo1x
+        preferences.convertToSRGBProfile = newPreferences.convertToSRGBProfile
+        preferences.add1pxBorderToScreenshots = newPreferences.add1pxBorderToScreenshots
+        preferences.backgroundPreset = newPreferences.backgroundPreset
+        preferences.selfTimerInterval = newPreferences.selfTimerInterval
+        preferences.showCursorInScreenshots = newPreferences.showCursorInScreenshots
+        preferences.freezeScreenWhenTakingScreenshot = newPreferences.freezeScreenWhenTakingScreenshot
+        preferences.crosshairMode = newPreferences.crosshairMode
+        preferences.showMagnifierInCrosshair = newPreferences.showMagnifierInCrosshair
+        
+        preferences.inverseArrowDirection = newPreferences.inverseArrowDirection
+        preferences.smoothDrawing = newPreferences.smoothDrawing
+        preferences.rememberBackgroundToolState = newPreferences.rememberBackgroundToolState
+        preferences.drawShadowOnObjects = newPreferences.drawShadowOnObjects
+        preferences.automaticallyExpandCanvas = newPreferences.automaticallyExpandCanvas
+        preferences.showColorNames = newPreferences.showColorNames
+        preferences.alwaysOnTop = newPreferences.alwaysOnTop
+        preferences.showDockIcon = newPreferences.showDockIcon
+        
+        preferences.overlayPositionOnScreen = newPreferences.overlayPositionOnScreen
+        preferences.moveToActiveScreen = newPreferences.moveToActiveScreen
+        preferences.overlaySize = newPreferences.overlaySize
+        preferences.enableAutoClose = newPreferences.enableAutoClose
+        preferences.autoCloseAction = newPreferences.autoCloseAction
+        preferences.autoCloseInterval = newPreferences.autoCloseInterval
+        preferences.closeAfterDragging = newPreferences.closeAfterDragging
+        preferences.closeAfterCloudUpload = newPreferences.closeAfterCloudUpload
+        preferences.saveButtonBehavior = newPreferences.saveButtonBehavior
+        
+        preferences.fileNamingPattern = newPreferences.fileNamingPattern
+        preferences.askForNameAfterEveryCapture = newPreferences.askForNameAfterEveryCapture
+        preferences.addRetinaSuffixToFilenames = newPreferences.addRetinaSuffixToFilenames
+        preferences.clipboardCopyMode = newPreferences.clipboardCopyMode
+        preferences.pinnedScreenshotRoundedCorners = newPreferences.pinnedScreenshotRoundedCorners
+        preferences.pinnedScreenshotShadow = newPreferences.pinnedScreenshotShadow
+        preferences.pinnedScreenshotBorder = newPreferences.pinnedScreenshotBorder
+        preferences.historyRetentionPeriod = newPreferences.historyRetentionPeriod
+        preferences.rememberLastAllInOneSelection = newPreferences.rememberLastAllInOneSelection
+        preferences.textRecognitionLanguage = newPreferences.textRecognitionLanguage
+        preferences.textRecognitionKeepLineBreaks = newPreferences.textRecognitionKeepLineBreaks
+        preferences.textRecognitionDetectLinks = newPreferences.textRecognitionDetectLinks
+        preferences.allowApplicationsToControlApp = newPreferences.allowApplicationsToControlApp
+        
         // Clear hotkeys and save location
         preferences.captureHotkey = nil
         preferences.annotationHotkey = nil
@@ -429,6 +485,115 @@ class PreferencesManager: ObservableObject {
     /// - Returns: True if valid hex color format
     func validateHexColor(_ colorHex: String?) -> Bool {
         return UserPreferences.isValidHexColor(colorHex)
+    }
+    
+    // MARK: - New Properties Validation Methods
+    
+    /// Validates and sets the file format preference
+    /// - Parameter format: The file format to set
+    /// - Returns: True if the format was set successfully
+    func setFileFormat(_ format: String) -> Bool {
+        let validFormats = ["PNG", "JPEG", "HEIF", "TIFF"]
+        guard validFormats.contains(format) else {
+            logger.warning("Invalid file format attempted: \(format)")
+            return false
+        }
+        preferences.fileFormat = format
+        return true
+    }
+    
+    /// Validates and sets the self-timer interval
+    /// - Parameter interval: The interval in seconds
+    /// - Returns: True if the interval was set successfully
+    func setSelfTimerInterval(_ interval: Int32) -> Bool {
+        let clampedInterval = max(1, min(300, interval))
+        if clampedInterval != interval {
+            logger.warning("Self-timer interval clamped from \(interval) to \(clampedInterval)")
+        }
+        preferences.selfTimerInterval = clampedInterval
+        return true
+    }
+    
+    /// Validates and sets the overlay size
+    /// - Parameter size: The overlay size multiplier
+    /// - Returns: True if the size was set successfully  
+    func setOverlaySize(_ size: Float) -> Bool {
+        let clampedSize = max(0.1, min(3.0, size))
+        if clampedSize != size {
+            logger.warning("Overlay size clamped from \(size) to \(clampedSize)")
+        }
+        preferences.overlaySize = clampedSize
+        return true
+    }
+    
+    /// Validates and sets the auto-close interval
+    /// - Parameter interval: The interval in seconds
+    /// - Returns: True if the interval was set successfully
+    func setAutoCloseInterval(_ interval: Int32) -> Bool {
+        let clampedInterval = max(5, min(300, interval))
+        if clampedInterval != interval {
+            logger.warning("Auto-close interval clamped from \(interval) to \(clampedInterval)")
+        }
+        preferences.autoCloseInterval = clampedInterval
+        return true
+    }
+    
+    /// Validates and sets the overlay position
+    /// - Parameter position: The position string
+    /// - Returns: True if the position was set successfully
+    func setOverlayPosition(_ position: String) -> Bool {
+        let validPositions = ["Left", "Right", "Top", "Bottom", "Center"]
+        guard validPositions.contains(position) else {
+            logger.warning("Invalid overlay position attempted: \(position)")
+            return false
+        }
+        preferences.overlayPositionOnScreen = position
+        return true
+    }
+    
+    /// Validates and sets the crosshair mode
+    /// - Parameter mode: The crosshair mode string
+    /// - Returns: True if the mode was set successfully
+    func setCrosshairMode(_ mode: String) -> Bool {
+        let validModes = ["Disabled", "Enabled", "Always On"]
+        guard validModes.contains(mode) else {
+            logger.warning("Invalid crosshair mode attempted: \(mode)")
+            return false 
+        }
+        preferences.crosshairMode = mode
+        return true
+    }
+    
+    /// Validates and sets the history retention period
+    /// - Parameter period: The retention period string
+    /// - Returns: True if the period was set successfully
+    func setHistoryRetentionPeriod(_ period: String) -> Bool {
+        let validPeriods = ["Never", "1 day", "3 days", "1 week", "1 month"]
+        guard validPeriods.contains(period) else {
+            logger.warning("Invalid history retention period attempted: \(period)")
+            return false
+        }
+        preferences.historyRetentionPeriod = period
+        return true
+    }
+    
+    /// Validates and sets the background preset
+    /// - Parameter preset: The background preset string
+    /// - Returns: True if the preset was set successfully
+    func setBackgroundPreset(_ preset: String) -> Bool {
+        let validPresets = ["None", "Blur", "Shadow", "Frame"]
+        guard validPresets.contains(preset) else {
+            logger.warning("Invalid background preset attempted: \(preset)")
+            return false
+        }
+        preferences.backgroundPreset = preset
+        return true
+    }
+    
+    /// Validates all new preference properties
+    /// - Returns: True if all new properties are valid
+    func validateAllNewProperties() -> Bool {
+        return preferences.areNewPropertiesValid
     }
 }
 

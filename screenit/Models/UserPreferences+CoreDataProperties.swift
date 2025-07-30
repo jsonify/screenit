@@ -53,5 +53,70 @@ extension UserPreferences {
     
     @NSManaged public var createdAt: Date?
     @NSManaged public var updatedAt: Date?
+    
+    // MARK: - General Preferences (from preferences_general.png mock)
+    
+    @NSManaged public var showQuickAccessOverlayAfterCapture: Bool
+    @NSManaged public var copyFileToClipboardAfterCapture: Bool
+    @NSManaged public var saveAfterCapture: Bool
+    @NSManaged public var uploadToCloudAfterCapture: Bool
+    @NSManaged public var openAnnotateToolAfterCapture: Bool
+    @NSManaged public var pinToScreenAfterCapture: Bool
+    @NSManaged public var openVideoEditorAfterCapture: Bool
+    @NSManaged public var playSounds: Bool
+    @NSManaged public var shutterSound: String
+    @NSManaged public var hideDesktopIconsWhileCapturing: Bool
+    
+    // MARK: - Screenshots Preferences (from preferences_screenshots.png mock)
+    
+    @NSManaged public var fileFormat: String
+    @NSManaged public var scaleRetinaScreenshotsTo1x: Bool
+    @NSManaged public var convertToSRGBProfile: Bool
+    @NSManaged public var add1pxBorderToScreenshots: Bool
+    @NSManaged public var backgroundPreset: String
+    @NSManaged public var selfTimerInterval: Int32
+    @NSManaged public var showCursorInScreenshots: Bool
+    @NSManaged public var freezeScreenWhenTakingScreenshot: Bool
+    @NSManaged public var crosshairMode: String
+    @NSManaged public var showMagnifierInCrosshair: Bool
+    
+    // MARK: - Annotate Preferences (from preferences_annotate.png mock)
+    
+    @NSManaged public var inverseArrowDirection: Bool
+    @NSManaged public var smoothDrawing: Bool
+    @NSManaged public var rememberBackgroundToolState: Bool
+    @NSManaged public var drawShadowOnObjects: Bool
+    @NSManaged public var automaticallyExpandCanvas: Bool
+    @NSManaged public var showColorNames: Bool
+    @NSManaged public var alwaysOnTop: Bool
+    @NSManaged public var showDockIcon: Bool
+    
+    // MARK: - Quick Access Preferences (from preferences_quick-access.png mock)
+    
+    @NSManaged public var overlayPositionOnScreen: String
+    @NSManaged public var moveToActiveScreen: Bool
+    @NSManaged public var overlaySize: Float
+    @NSManaged public var enableAutoClose: Bool
+    @NSManaged public var autoCloseAction: String
+    @NSManaged public var autoCloseInterval: Int32
+    @NSManaged public var closeAfterDragging: Bool
+    @NSManaged public var closeAfterCloudUpload: Bool
+    @NSManaged public var saveButtonBehavior: String
+    
+    // MARK: - Advanced Preferences (from preferences_advanced.png mock)
+    
+    @NSManaged public var fileNamingPattern: String
+    @NSManaged public var askForNameAfterEveryCapture: Bool
+    @NSManaged public var addRetinaSuffixToFilenames: Bool
+    @NSManaged public var clipboardCopyMode: String
+    @NSManaged public var pinnedScreenshotRoundedCorners: Bool
+    @NSManaged public var pinnedScreenshotShadow: Bool
+    @NSManaged public var pinnedScreenshotBorder: Bool
+    @NSManaged public var historyRetentionPeriod: String
+    @NSManaged public var rememberLastAllInOneSelection: Bool
+    @NSManaged public var textRecognitionLanguage: String
+    @NSManaged public var textRecognitionKeepLineBreaks: Bool
+    @NSManaged public var textRecognitionDetectLinks: Bool
+    @NSManaged public var allowApplicationsToControlApp: Bool
 
 }

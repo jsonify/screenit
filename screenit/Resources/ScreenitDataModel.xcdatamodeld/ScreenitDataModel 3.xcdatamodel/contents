@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="22758" systemVersion="23F79" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="AnnotationData" representedClassName="AnnotationData" syncable="YES">
+        <attribute name="colorHex" optional="YES" attributeType="String"/>
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="normalizedHeight" optional="YES" attributeType="Float" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="normalizedWidth" optional="YES" attributeType="Float" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="normalizedX" optional="YES" attributeType="Float" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="normalizedY" optional="YES" attributeType="Float" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="properties" optional="YES" attributeType="Binary"/>
+        <attribute name="thickness" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="timestamp" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="type" optional="YES" attributeType="String"/>
+        <relationship name="captureItem" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CaptureItem" inverseName="annotations" inverseEntity="CaptureItem"/>
+    </entity>
+    <entity name="CaptureItem" representedClassName="CaptureItem" syncable="YES">
+        <attribute name="fileSize" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="height" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="imageData" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="YES"/>
+        <attribute name="thumbnailData" optional="YES" attributeType="Binary"/>
+        <attribute name="timestamp" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="width" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="annotations" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="AnnotationData" inverseName="captureItem" inverseEntity="AnnotationData"/>
+    </entity>
+    <entity name="UserPreferences" representedClassName="UserPreferences" syncable="YES">
+        <!-- Existing Properties from Version 2 -->
+        <attribute name="autoSaveToDesktop" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="captureHotkey" optional="YES" attributeType="String"/>
+        <attribute name="annotationHotkey" optional="YES" attributeType="String"/>
+        <attribute name="historyHotkey" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="defaultArrowColor" optional="YES" attributeType="String" defaultValueString="#FF0000"/>
+        <attribute name="defaultArrowThickness" optional="YES" attributeType="Float" defaultValueString="2.0" usesScalarValueType="YES"/>
+        <attribute name="defaultHighlightColor" optional="YES" attributeType="String" defaultValueString="#FFFF00"/>
+        <attribute name="defaultRectangleColor" optional="YES" attributeType="String" defaultValueString="#0066CC"/>
+        <attribute name="defaultRectangleThickness" optional="YES" attributeType="Float" defaultValueString="2.0" usesScalarValueType="YES"/>
+        <attribute name="defaultSaveLocation" optional="YES" attributeType="String"/>
+        <attribute name="defaultTextColor" optional="YES" attributeType="String" defaultValueString="#000000"/>
+        <attribute name="defaultTextSize" optional="YES" attributeType="Float" defaultValueString="14.0" usesScalarValueType="YES"/>
+        <attribute name="enableSoundEffects" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="enableSounds" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="customSaveLocation" optional="YES" attributeType="String" defaultValueString="" usesScalarValueType="NO"/>
+        <attribute name="saveLocation" optional="YES" attributeType="String" defaultValueString="desktop" usesScalarValueType="NO"/>
+        <attribute name="showAnnotationToolbar" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="autoSaveToHistory" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="enableHighDPICapture" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="enableNotifications" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="showPreviewWindow" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="defaultAnnotationColor" optional="YES" attributeType="String" defaultValueString="#FF0000" usesScalarValueType="NO"/>
+        <attribute name="enableHistoryThumbnails" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="previewDuration" optional="YES" attributeType="Double" defaultValueString="6.0" usesScalarValueType="YES"/>
+        <attribute name="compressionQuality" optional="YES" attributeType="Double" defaultValueString="0.8" usesScalarValueType="YES"/>
+        <attribute name="maxImageSize" optional="YES" attributeType="Integer 32" defaultValueString="8192" usesScalarValueType="YES"/>
+        <attribute name="historyRetentionLimit" optional="YES" attributeType="Integer 32" defaultValueString="10" usesScalarValueType="YES"/>
+        <attribute name="launchAtLogin" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="showCaptureNotifications" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="showMenuBarIcon" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        
+        <!-- New Properties for General Preferences (from preferences_general.png) -->
+        <attribute name="showQuickAccessOverlayAfterCapture" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="copyFileToClipboardAfterCapture" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="saveAfterCapture" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="uploadToCloudAfterCapture" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="openAnnotateToolAfterCapture" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="pinToScreenAfterCapture" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="openVideoEditorAfterCapture" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="playSounds" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="shutterSound" optional="YES" attributeType="String" defaultValueString="Default" usesScalarValueType="NO"/>
+        <attribute name="hideDesktopIconsWhileCapturing" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        
+        <!-- New Properties for Screenshots Preferences (from preferences_screenshots.png) -->
+        <attribute name="fileFormat" optional="YES" attributeType="String" defaultValueString="PNG" usesScalarValueType="NO"/>
+        <attribute name="scaleRetinaScreenshotsTo1x" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="convertToSRGBProfile" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="add1pxBorderToScreenshots" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="backgroundPreset" optional="YES" attributeType="String" defaultValueString="None" usesScalarValueType="NO"/>
+        <attribute name="selfTimerInterval" optional="YES" attributeType="Integer 32" defaultValueString="5" usesScalarValueType="YES"/>
+        <attribute name="showCursorInScreenshots" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="freezeScreenWhenTakingScreenshot" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="crosshairMode" optional="YES" attributeType="String" defaultValueString="Disabled" usesScalarValueType="NO"/>
+        <attribute name="showMagnifierInCrosshair" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        
+        <!-- New Properties for Annotate Preferences (from preferences_annotate.png) -->
+        <attribute name="inverseArrowDirection" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="smoothDrawing" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="rememberBackgroundToolState" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="drawShadowOnObjects" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="automaticallyExpandCanvas" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="showColorNames" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="alwaysOnTop" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="showDockIcon" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        
+        <!-- New Properties for Quick Access Preferences (from preferences_quick-access.png) -->
+        <attribute name="overlayPositionOnScreen" optional="YES" attributeType="String" defaultValueString="Left" usesScalarValueType="NO"/>
+        <attribute name="moveToActiveScreen" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="overlaySize" optional="YES" attributeType="Float" defaultValueString="1.0" usesScalarValueType="YES"/>
+        <attribute name="enableAutoClose" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="autoCloseAction" optional="YES" attributeType="String" defaultValueString="Save and Close" usesScalarValueType="NO"/>
+        <attribute name="autoCloseInterval" optional="YES" attributeType="Integer 32" defaultValueString="30" usesScalarValueType="YES"/>
+        <attribute name="closeAfterDragging" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="closeAfterCloudUpload" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="saveButtonBehavior" optional="YES" attributeType="String" defaultValueString="Save to &quot;Export location&quot;" usesScalarValueType="NO"/>
+        
+        <!-- New Properties for Advanced Preferences (from preferences_advanced.png) -->
+        <attribute name="fileNamingPattern" optional="YES" attributeType="String" defaultValueString="Edit" usesScalarValueType="NO"/>
+        <attribute name="askForNameAfterEveryCapture" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="addRetinaSuffixToFilenames" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="clipboardCopyMode" optional="YES" attributeType="String" defaultValueString="File &amp; Image (default)" usesScalarValueType="NO"/>
+        <attribute name="pinnedScreenshotRoundedCorners" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="pinnedScreenshotShadow" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="pinnedScreenshotBorder" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="historyRetentionPeriod" optional="YES" attributeType="String" defaultValueString="1 week" usesScalarValueType="NO"/>
+        <attribute name="rememberLastAllInOneSelection" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="textRecognitionLanguage" optional="YES" attributeType="String" defaultValueString="Automatically Detect Language" usesScalarValueType="NO"/>
+        <attribute name="textRecognitionKeepLineBreaks" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="textRecognitionDetectLinks" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="allowApplicationsToControlApp" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+    </entity>
+</model>

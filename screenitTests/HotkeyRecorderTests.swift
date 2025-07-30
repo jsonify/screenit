@@ -1,5 +1,6 @@
 import XCTest
 import SwiftUI
+import Combine
 @testable import screenit
 
 @MainActor
@@ -200,6 +201,130 @@ final class HotkeyRecorderTests: XCTestCase {
         
         // Should have mappings for common keys
         XCTAssertGreaterThanOrEqual(mappedCount, 30, "Should have mappings for at least 30 common keys")
+    }
+    
+    // MARK: - Enhanced Recording Interface Tests
+    
+    func testRecordingStateTransitions() {
+        // Test the recording state transitions for enhanced interface
+        XCTAssertFalse(hotkeyRecorder.isRecording, "Should start in ready state")
+        
+        // Transition to recording
+        hotkeyRecorder.startRecording()
+        XCTAssertTrue(hotkeyRecorder.isRecording, "Should transition to recording state")
+        
+        // Transition back to ready
+        hotkeyRecorder.stopRecording()
+        XCTAssertFalse(hotkeyRecorder.isRecording, "Should transition back to ready state")
+    }
+    
+    func testRecordingStateIndicators() {
+        // Test that state changes are published correctly for UI updates
+        let expectation = XCTestExpectation(description: "State change published")
+        var stateChanges: [Bool] = []
+        
+        let cancellable = hotkeyRecorder.$isRecording
+            .sink { isRecording in
+                stateChanges.append(isRecording)
+                if stateChanges.count >= 3 { // initial + start + stop
+                    expectation.fulfill()
+                }
+            }
+        
+        // Trigger state changes
+        hotkeyRecorder.startRecording()
+        hotkeyRecorder.stopRecording()
+        
+        wait(for: [expectation], timeout: 1.0)
+        
+        XCTAssertEqual(stateChanges.count, 3, "Should have received 3 state changes")
+        XCTAssertEqual(stateChanges, [false, true, false], "Should transition false -> true -> false")
+        
+        cancellable.cancel()
+    }
+    
+    func testRecordingErrorHandling() {
+        // Test multiple start attempts
+        hotkeyRecorder.startRecording()
+        hotkeyRecorder.startRecording() // Second call should be ignored
+        
+        XCTAssertTrue(hotkeyRecorder.isRecording, "Should still be recording after duplicate start")
+        
+        // Test multiple stop attempts
+        hotkeyRecorder.stopRecording()
+        hotkeyRecorder.stopRecording() // Second call should be handled gracefully
+        
+        XCTAssertFalse(hotkeyRecorder.isRecording, "Should remain stopped after duplicate stop")
+    }
+    
+    func testPublishedPropertiesForUIUpdates() {
+        // Test that UI-relevant properties are properly published
+        let isRecordingExpectation = XCTestExpectation(description: "isRecording published")
+        let recordedHotkeyExpectation = XCTestExpectation(description: "recordedHotkey published")
+        
+        var isRecordingValues: [Bool] = []
+        var recordedHotkeyValues: [String?] = []
+        
+        let cancellable1 = hotkeyRecorder.$isRecording
+            .sink { value in
+                isRecordingValues.append(value)
+                if isRecordingValues.count >= 2 {
+                    isRecordingExpectation.fulfill()
+                }
+            }
+        
+        let cancellable2 = hotkeyRecorder.$recordedHotkey
+            .sink { value in
+                recordedHotkeyValues.append(value)
+                if recordedHotkeyValues.count >= 2 {
+                    recordedHotkeyExpectation.fulfill()
+                }
+            }
+        
+        // Start recording to trigger state changes
+        hotkeyRecorder.startRecording()
+        
+        wait(for: [isRecordingExpectation, recordedHotkeyExpectation], timeout: 1.0)
+        
+        XCTAssertTrue(isRecordingValues.contains(true), "Should publish recording state")
+        XCTAssertTrue(recordedHotkeyValues.contains(nil), "Should publish nil hotkey initially")
+        
+        cancellable1.cancel()
+        cancellable2.cancel()
+    }
+    
+    func testCleanupPublicState() {
+        // Test the public cleanup state tracking
+        XCTAssertFalse(hotkeyRecorder.isCleaningUpPublic, "Should not be cleaning up initially")
+        
+        // Start recording
+        hotkeyRecorder.startRecording()
+        XCTAssertFalse(hotkeyRecorder.isCleaningUpPublic, "Should not be cleaning up while recording")
+        
+        // Stop recording
+        hotkeyRecorder.stopRecording()
+        // Note: isCleaningUpPublic is internal state, we test that it doesn't prevent operations
+        
+        // Should be able to start recording again after cleanup
+        hotkeyRecorder.startRecording()
+        XCTAssertTrue(hotkeyRecorder.isRecording, "Should be able to record again after cleanup")
+    }
+    
+    func testEventHandlingRobustness() {
+        // Test that event handling is robust and doesn't crash
+        hotkeyRecorder.startRecording()
+        
+        // Simulate rapid state changes that might occur in real usage
+        for _ in 0..<5 {
+            hotkeyRecorder.stopRecording()
+            hotkeyRecorder.startRecording()
+        }
+        
+        XCTAssertTrue(hotkeyRecorder.isRecording, "Should handle rapid state changes")
+        
+        // Clean up
+        hotkeyRecorder.stopRecording()
+        XCTAssertFalse(hotkeyRecorder.isRecording, "Should stop recording cleanly")
     }
 }
 
