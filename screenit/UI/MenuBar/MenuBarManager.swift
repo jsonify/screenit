@@ -855,7 +855,9 @@ class MenuBarManager: ObservableObject {
     
     /// Updates performance status display
     private func updatePerformanceStatus(_ status: String) {
-        performanceStatus = status
+        DispatchQueue.main.async {
+            self.performanceStatus = status
+        }
     }
     
     /// Gets recovery suggestion for current error
