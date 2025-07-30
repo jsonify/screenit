@@ -7,13 +7,13 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
 
 ## Tasks
 
-- [ ] 1. Core Data Schema Extension and Migration
-  - [ ] 1.1 Write tests for new UserPreferences properties and validation
-  - [ ] 1.2 Add new preference properties to UserPreferences Core Data model (referencing `/Users/jsonify/Desktop/mocks` for exact field requirements)
-  - [ ] 1.3 Update UserPreferences.createWithDefaults() with new property defaults
-  - [ ] 1.4 Implement Core Data migration for schema changes
-  - [ ] 1.5 Update PreferencesManager to handle new properties with proper validation
-  - [ ] 1.6 Verify all tests pass and Core Data integration works
+- [x] 1. Core Data Schema Extension and Migration
+  - [x] 1.1 Write tests for new UserPreferences properties and validation
+  - [x] 1.2 Add new preference properties to UserPreferences Core Data model (referencing `/Users/jsonify/Desktop/mocks` for exact field requirements)
+  - [x] 1.3 Update UserPreferences.createWithDefaults() with new property defaults
+  - [x] 1.4 Implement Core Data migration for schema changes
+  - [x] 1.5 Update PreferencesManager to handle new properties with proper validation
+  - [x] 1.6 Verify all tests pass and Core Data integration works
 
 - [ ] 2. Sidebar Navigation System Implementation
   - [ ] 2.1 Write tests for sidebar navigation state management
